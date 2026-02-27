@@ -102,12 +102,12 @@
 
         <h2 style="margin-bottom: 25px; border-bottom: 2px solid rgb(250, 175, 0); padding-bottom: 10px; display: inline-block;">Filtros</h2>
         
-        <label>ATIVO NA TELA:</label>
+        <label>ATIVO:</label>
         <select id="ativoSelect" onchange="processarDadosEAtualizar()"></select>
         
         <hr>
         
-        <label>ANOS NA AMOSTRA:</label>
+        <label>ANOS:</label>
         <div class="btn-group">
             <button onclick="selecionarTodosAnos(true)">Todos</button>
             <button class="btn-secundario" onclick="selecionarTodosAnos(false)">Limpar</button>
@@ -116,7 +116,7 @@
 
         <hr>
 
-        <label>MÊS DA SAZONALIDADE:</label>
+        <label>MÊS:</label>
         <select id="mesSelect" onchange="desenharSazonalidade()">
             <option value="1">Janeiro</option><option value="2">Fevereiro</option>
             <option value="3">Março</option><option value="4">Abril</option>
@@ -347,4 +347,5 @@
     </script>
 </body>
 </html>
+
 
