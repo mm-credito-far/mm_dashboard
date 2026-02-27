@@ -7,85 +7,92 @@
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        /* --- ESTILOS GERAIS --- */
+        /* --- ESTILOS GERAIS E PALETA DE CORES --- */
         body {
-            background-color: #1e1e1e; color: #e0e0e0;
+            /* Usando o cinza chumbo da sua paleta para o fundo */
+            background-color: rgb(35, 55, 70); 
+            color: #f2f2f2;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0; display: flex; height: 100vh; overflow: hidden;
         }
-        h2, h3 { color: #1f6aa5; margin-top: 0; }
-        hr { border: 1px solid #444; margin: 20px 0; }
+        
+        /* Títulos em Branco */
+        h2, h3 { color: #ffffff; margin-top: 0; font-weight: 600; letter-spacing: 0.5px; }
+        hr { border: 1px solid rgb(120, 135, 145); margin: 20px 0; opacity: 0.3; }
         
         /* --- BARRA LATERAL --- */
         .sidebar {
-            background-color: #2b2b2b; width: 260px; padding: 20px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow-y: auto;
+            /* Fundo levemente mais escuro para destacar do painel principal */
+            background-color: rgb(25, 40, 50); 
+            width: 260px; padding: 25px 20px;
+            box-shadow: 3px 0 10px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow-y: auto;
+            z-index: 10;
         }
-        .sidebar label { font-size: 14px; margin-bottom: 5px; display: block; color: #aaa; }
+        .sidebar label { font-size: 13px; margin-bottom: 6px; display: block; color: rgb(218, 238, 243); font-weight: bold; }
         
-        select, input[type="number"] {
-            width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box;
-            background-color: #3a3a3a; color: white; border: 1px solid #444; border-radius: 4px;
-            outline: none; font-size: 14px;
+        select {
+            width: 100%; padding: 10px; margin-bottom: 20px; box-sizing: border-box;
+            background-color: rgb(35, 55, 70); color: white; border: 1px solid rgb(120, 135, 145); border-radius: 4px;
+            outline: none; font-size: 14px; cursor: pointer;
         }
-        select:focus, input:focus { border-color: #1f6aa5; }
+        select:focus { border-color: rgb(250, 175, 0); }
         
-        /* Botões de Ação */
+        /* Botões de Ação com o Amarelo Forte */
         .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
         button {
-            flex: 1; padding: 8px; background-color: #1f6aa5; color: white;
+            flex: 1; padding: 8px; background-color: rgb(250, 175, 0); color: #111;
             border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
         }
-        button:hover { background-color: #155585; }
-        button.btn-secundario { background-color: #444; }
-        button.btn-secundario:hover { background-color: #555; }
+        button:hover { background-color: rgb(255, 205, 0); transform: translateY(-1px); }
+        
+        button.btn-secundario { background-color: rgb(134, 144, 153); color: #fff; }
+        button.btn-secundario:hover { background-color: rgb(181, 188, 194); color: #111;}
 
-        /* Lista de Checkboxes Refinada */
+        /* Lista de Checkboxes */
         .checkbox-list {
-            background-color: #222; border: 1px solid #3a3a3a; padding: 12px; border-radius: 6px;
+            background-color: rgb(35, 55, 70); border: 1px solid rgba(120, 135, 145, 0.4); 
+            padding: 12px; border-radius: 6px;
             max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         .checkbox-list label {
             display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px;
-            color: #ddd; margin: 0; transition: color 0.2s;
+            color: #ddd; margin: 0; transition: color 0.2s; font-weight: normal;
         }
         .checkbox-list label:hover { color: #fff; }
         .checkbox-list input[type="checkbox"] { 
-            margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: #1f6aa5;
+            margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: rgb(250, 175, 0);
         }
-
-        .eixo-y-container { display: flex; gap: 8px; margin-bottom: 10px; }
-        .eixo-y-container input { margin-bottom: 0; }
 
         /* --- CONTEÚDO PRINCIPAL --- */
         .main-content {
-            flex-grow: 1; padding: 20px; overflow-y: auto; background-color: #1e1e1e;
+            flex-grow: 1; padding: 25px 30px; overflow-y: auto; background-color: rgb(35, 55, 70);
         }
         .chart-container {
-            background-color: #2b2b2b; border-radius: 8px; padding: 15px;
-            margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            background-color: rgb(25, 40, 50); border-radius: 8px; padding: 20px;
+            margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 1px solid rgba(120, 135, 145, 0.1);
         }
         
-        /* Custom Scrollbar para elementos internos */
+        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #222; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #777; }
+        ::-webkit-scrollbar-track { background: rgb(25, 40, 50); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgb(120, 135, 145); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(181, 188, 194); }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <h2>Filtros</h2>
+        <h2 style="margin-bottom: 25px; border-bottom: 2px solid rgb(250, 175, 0); padding-bottom: 10px; display: inline-block;">Filtros</h2>
         
-        <label><b>ATIVO:</b></label>
+        <label>ATIVO NA TELA:</label>
         <select id="ativoSelect" onchange="processarDadosEAtualizar()"></select>
         
         <hr>
         
-        <label><b>ANOS NA AMOSTRA:</b></label>
+        <label>ANOS NA AMOSTRA:</label>
         <div class="btn-group">
             <button onclick="selecionarTodosAnos(true)">Todos</button>
             <button class="btn-secundario" onclick="selecionarTodosAnos(false)">Limpar</button>
@@ -94,7 +101,7 @@
 
         <hr>
 
-        <label><b>MÊS DA SAZONALIDADE:</b></label>
+        <label>MÊS DA SAZONALIDADE:</label>
         <select id="mesSelect" onchange="desenharSazonalidade()">
             <option value="1">Janeiro</option><option value="2">Fevereiro</option>
             <option value="3">Março</option><option value="4">Abril</option>
@@ -103,14 +110,6 @@
             <option value="9">Setembro</option><option value="10">Outubro</option>
             <option value="11">Novembro</option><option value="12">Dezembro</option>
         </select>
-
-        <label><b>AJUSTE EIXO Y SAZONAL (%):</b></label>
-        <div class="eixo-y-container">
-            <input type="number" id="yMin" placeholder="Mínimo" step="0.1">
-            <input type="number" id="yMax" placeholder="Máximo" step="0.1">
-        </div>
-        <button onclick="desenharSazonalidade()">Aplicar Limites</button>
-
     </div>
 
     <div class="main-content">
@@ -130,6 +129,12 @@
         let dadosEnriquecidos = []; 
         let anosDisponiveis = [];
 
+        // Cores extraídas da paleta
+        const COR_SERIE = 'rgb(250, 175, 0)';
+        const COR_FUNDO_GRAFICO = 'rgb(25, 40, 50)';
+        const COR_GRID = 'rgba(120, 135, 145, 0.2)';
+        const COR_TEXTO = '#ffffff';
+
         // 1. LÊ O ARQUIVO CSV
         Papa.parse("dados.csv", {
             download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
@@ -143,7 +148,6 @@
         function inicializarInterface() {
             if (dadosBrutos.length === 0) return;
 
-            // Preenche os Ativos
             let colunas = Object.keys(dadosBrutos[0]).filter(k => k !== 'Data');
             let selectAtivo = document.getElementById("ativoSelect");
             colunas.forEach(col => {
@@ -152,14 +156,12 @@
                 selectAtivo.appendChild(opt);
             });
 
-            // Descobre todos os anos existentes
             let anosSet = new Set();
             dadosBrutos.forEach(row => {
                 anosSet.add(row.Data.substring(0, 4));
             });
             anosDisponiveis = Array.from(anosSet).sort().reverse();
 
-            // Cria os Checkboxes
             let divAnos = document.getElementById("anosCheckboxes");
             anosDisponiveis.forEach(ano => {
                 let lbl = document.createElement("label");
@@ -180,7 +182,7 @@
             atualizarGraficos();
         }
 
-        // 3. FAZ AS CONTAS BÁSICAS (Retorno e Dia Útil)
+        // 3. FAZ AS CONTAS BÁSICAS
         function processarDadosEAtualizar() {
             let ativo = document.getElementById("ativoSelect").value;
             dadosEnriquecidos = [];
@@ -231,14 +233,14 @@
                 x: dadosFiltrados.map(d => d.Data),
                 y: dadosFiltrados.map(d => d.Close),
                 type: 'scatter', mode: 'lines',
-                line: {color: '#00b894', width: 1.5},
-                fill: 'tozeroy', fillcolor: 'rgba(0, 184, 148, 0.1)',
+                line: {color: COR_SERIE, width: 2},
+                fill: 'tozeroy', fillcolor: 'rgba(250, 175, 0, 0.08)',
                 name: ativo
             };
 
             let layout = {
-                plot_bgcolor: '#2b2b2b', paper_bgcolor: '#2b2b2b', font: {color: '#e0e0e0'},
-                xaxis: { gridcolor: '#444' }, yaxis: { gridcolor: '#444' },
+                plot_bgcolor: COR_FUNDO_GRAFICO, paper_bgcolor: COR_FUNDO_GRAFICO, font: {color: COR_TEXTO},
+                xaxis: { gridcolor: COR_GRID }, yaxis: { gridcolor: COR_GRID },
                 margin: {t: 10, l: 40, r: 20, b: 30},
                 hovermode: 'x unified'
             };
@@ -246,7 +248,7 @@
             Plotly.newPlot('graficoPrincipal', [trace], layout);
         }
 
-        // 5. DESENHA GRÁFICO 2: SAZONALIDADE (Somente Ano Atual e Média)
+        // 5. DESENHA GRÁFICO 2: SAZONALIDADE LIMPO E AUTOMÁTICO
         function desenharSazonalidade() {
             let mes = parseInt(document.getElementById("mesSelect").value);
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
@@ -269,8 +271,7 @@
             let traces = [];
             let somaRetornosPorDia = {}; 
 
-            // Itera para calcular a média de todos os anos selecionados, 
-            // mas SÓ desenha a linha se for o Ano Atual.
+            // Calcula os dados de todos os anos selecionados, mas desenha SÓ o Ano Atual
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
                 let x = []; let y = []; let retornoAcumulado = 0;
@@ -284,17 +285,18 @@
                     somaRetornosPorDia[d.TradingDay].push(d.Retorno);
                 });
 
-                // Desenha apenas o Ano Atual (Removemos as linhas cinzas)
+                // Desenha apenas o Ano Atual com a cor Amarela solicitada
                 if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
                     traces.push({
                         x: x, y: y, type: 'scatter', mode: 'lines+markers',
-                        line: {color: '#2980b9', width: 3},
+                        line: {color: COR_SERIE, width: 3},
+                        marker: {size: 6},
                         name: `Ano Atual (${ano})`
                     });
                 }
             });
 
-            // Linha da Média Histórica da Amostra
+            // Linha da Média Histórica da Amostra (Usando um cinza clarinho da sua paleta para contraste)
             let maxDias = Math.max(...Object.keys(somaRetornosPorDia).map(Number));
             let xAvg = []; let yAvg = []; let mediaAcumulada = 0;
 
@@ -308,42 +310,30 @@
                 }
             }
 
-            let corMedia = mediaAcumulada >= 0 ? '#00e676' : '#ff1744'; 
-
             traces.push({
                 x: xAvg, y: yAvg, type: 'scatter', mode: 'lines',
-                line: {color: corMedia, width: 4},
-                name: 'Média Amostra'
+                line: {color: 'rgb(242, 242, 242)', width: 3, dash: 'dot'},
+                name: 'Média da Amostra'
             });
 
-            // Linha do Zero (Referência)
+            // Linha Referência do Zero
             traces.push({
                 x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
-                line: {color: 'white', width: 1, dash: 'dot'},
+                line: {color: 'rgba(255,255,255,0.3)', width: 1},
                 hoverinfo: 'none', showlegend: false
             });
 
             let layout = {
-                plot_bgcolor: '#2b2b2b', paper_bgcolor: '#2b2b2b', font: {color: '#e0e0e0'},
-                xaxis: { title: 'Dia Útil do Mês', gridcolor: '#444' },
-                yaxis: { title: 'Retorno Acumulado (%)', gridcolor: '#444' },
-                margin: {t: 10, l: 40, r: 20, b: 40}, hovermode: 'x unified'
+                plot_bgcolor: COR_FUNDO_GRAFICO, paper_bgcolor: COR_FUNDO_GRAFICO, font: {color: COR_TEXTO},
+                xaxis: { title: 'Dia Útil do Mês', gridcolor: COR_GRID },
+                yaxis: { title: 'Retorno Acumulado (%)', gridcolor: COR_GRID, zeroline: false },
+                margin: {t: 10, l: 40, r: 20, b: 40}, hovermode: 'x unified',
+                legend: { orientation: 'h', y: 1.1, x: 0 } // Move a legenda para cima para não poluir o gráfico
             };
-
-            // Se os campos de Y Mínimo/Máximo estiverem preenchidos, aplica. 
-            // Caso contrário, deixa o Plotly fazer o autoscale (que agora será perfeito).
-            let yMin = document.getElementById("yMin").value;
-            let yMax = document.getElementById("yMax").value;
-
-            if (yMin !== "" || yMax !== "") {
-                layout.yaxis.range = [
-                    yMin !== "" ? parseFloat(yMin) : null,
-                    yMax !== "" ? parseFloat(yMax) : null
-                ];
-            }
 
             Plotly.newPlot('graficoSazonalidade', traces, layout);
         }
     </script>
 </body>
 </html>
+
