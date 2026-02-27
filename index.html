@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sazonal - Dashboard Multiativos</title>
+    <title>Multimercado - Dashboard macro</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
@@ -41,12 +41,12 @@
     <div class="sidebar">
         <h2>Filtros</h2>
         
-        <label><b>Ativo Principal:</b></label>
+        <label><b>Ativo:</b></label>
         <select id="ativoSelect" onchange="processarDadosEAtualizar()"></select>
         
         <hr>
         
-        <label><b>Filtro de Anos (Evolução):</b></label>
+        <label><b>Anos:</b></label>
         <div style="display: flex; gap: 5px; margin-bottom: 10px;">
             <button onclick="selecionarTodosAnos(true)" style="margin:0; padding:5px;">Todos</button>
             <button onclick="selecionarTodosAnos(false)" style="margin:0; padding:5px;">Limpar</button>
@@ -55,7 +55,7 @@
 
         <hr>
 
-        <label><b>Mês da Sazonalidade:</b></label>
+        <label><b>Mês (MtD):</b></label>
         <select id="mesSelect" onchange="desenharSazonalidade()">
             <option value="1">Janeiro</option><option value="2">Fevereiro</option>
             <option value="3">Março</option><option value="4">Abril</option>
@@ -67,7 +67,7 @@
     </div>
 
     <div class="main-content">
-        <h1 style="margin-top:0;">Dashboard Analítico</h1>
+        <h1 style="margin-top:0;"> </h1>
         
         <div class="chart-container">
             <h3 id="tituloEvolucao">Evolução Histórica</h3>
@@ -296,4 +296,5 @@
     </script>
 </body>
 </html>
+
 
