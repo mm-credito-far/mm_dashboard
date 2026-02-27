@@ -7,38 +7,72 @@
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
+        /* --- ESTILOS GERAIS --- */
         body {
             background-color: #1e1e1e; color: #e0e0e0;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0; display: flex; height: 100vh; overflow: hidden;
         }
+        h2, h3 { color: #1f6aa5; margin-top: 0; }
+        hr { border: 1px solid #444; margin: 20px 0; }
+        
+        /* --- BARRA LATERAL --- */
         .sidebar {
-            background-color: #2b2b2b; width: 250px; padding: 20px;
+            background-color: #2b2b2b; width: 260px; padding: 20px;
             box-shadow: 2px 0 5px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow-y: auto;
         }
+        .sidebar label { font-size: 14px; margin-bottom: 5px; display: block; color: #aaa; }
+        
+        select, input[type="number"] {
+            width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box;
+            background-color: #3a3a3a; color: white; border: 1px solid #444; border-radius: 4px;
+            outline: none; font-size: 14px;
+        }
+        select:focus, input:focus { border-color: #1f6aa5; }
+        
+        /* Botões de Ação */
+        .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        button {
+            flex: 1; padding: 8px; background-color: #1f6aa5; color: white;
+            border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #155585; }
+        button.btn-secundario { background-color: #444; }
+        button.btn-secundario:hover { background-color: #555; }
+
+        /* Lista de Checkboxes Refinada */
+        .checkbox-list {
+            background-color: #222; border: 1px solid #3a3a3a; padding: 12px; border-radius: 6px;
+            max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+            margin-bottom: 15px;
+        }
+        .checkbox-list label {
+            display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px;
+            color: #ddd; margin: 0; transition: color 0.2s;
+        }
+        .checkbox-list label:hover { color: #fff; }
+        .checkbox-list input[type="checkbox"] { 
+            margin: 0; width: 16px; height: 16px; cursor: pointer; accent-color: #1f6aa5;
+        }
+
+        .eixo-y-container { display: flex; gap: 8px; margin-bottom: 10px; }
+        .eixo-y-container input { margin-bottom: 0; }
+
+        /* --- CONTEÚDO PRINCIPAL --- */
         .main-content {
             flex-grow: 1; padding: 20px; overflow-y: auto; background-color: #1e1e1e;
         }
-        h2, h3 { color: #1f6aa5; margin-top: 0; }
         .chart-container {
             background-color: #2b2b2b; border-radius: 8px; padding: 15px;
             margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        select, button, input {
-            width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box;
-            background-color: #444; color: white; border: none; border-radius: 4px;
-        }
-        .checkbox-list {
-            background-color: #333; padding: 10px; border-radius: 4px;
-            max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
-        }
-        .checkbox-list label { cursor: pointer; font-size: 14px; }
-        hr { border: 1px solid #444; margin: 20px 0; }
         
-        /* Ajuste para colocar os inputs de Y lado a lado */
-        .eixo-y-container {
-            display: flex; gap: 10px; margin-bottom: 10px;
-        }
+        /* Custom Scrollbar para elementos internos */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #222; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
     </style>
 </head>
 <body>
@@ -46,21 +80,21 @@
     <div class="sidebar">
         <h2>Filtros</h2>
         
-        <label><b>Ativo:</b></label>
+        <label><b>ATIVO:</b></label>
         <select id="ativoSelect" onchange="processarDadosEAtualizar()"></select>
         
         <hr>
         
-        <label><b>Anos:</b></label>
-        <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-            <button onclick="selecionarTodosAnos(true)" style="margin:0; padding:5px;">Todos</button>
-            <button onclick="selecionarTodosAnos(false)" style="margin:0; padding:5px;">Limpar</button>
+        <label><b>ANOS NA AMOSTRA:</b></label>
+        <div class="btn-group">
+            <button onclick="selecionarTodosAnos(true)">Todos</button>
+            <button class="btn-secundario" onclick="selecionarTodosAnos(false)">Limpar</button>
         </div>
         <div id="anosCheckboxes" class="checkbox-list"></div>
 
         <hr>
 
-        <label><b>Mês da Sazonalidade:</b></label>
+        <label><b>MÊS DA SAZONALIDADE:</b></label>
         <select id="mesSelect" onchange="desenharSazonalidade()">
             <option value="1">Janeiro</option><option value="2">Fevereiro</option>
             <option value="3">Março</option><option value="4">Abril</option>
@@ -70,18 +104,16 @@
             <option value="11">Novembro</option><option value="12">Dezembro</option>
         </select>
 
-        <label><b>Ajuste Eixo Y (%):</b></label>
+        <label><b>AJUSTE EIXO Y SAZONAL (%):</b></label>
         <div class="eixo-y-container">
             <input type="number" id="yMin" placeholder="Mínimo" step="0.1">
             <input type="number" id="yMax" placeholder="Máximo" step="0.1">
         </div>
-        <button onclick="desenharSazonalidade()" style="margin-top:-5px;">Aplicar Eixo</button>
+        <button onclick="desenharSazonalidade()">Aplicar Limites</button>
 
     </div>
 
     <div class="main-content">
-        <h1 style="margin-top:0;"> </h1>
-        
         <div class="chart-container">
             <h3 id="tituloEvolucao">Evolução Histórica</h3>
             <div id="graficoPrincipal" style="width:100%; height:350px;"></div>
@@ -127,18 +159,17 @@
             });
             anosDisponiveis = Array.from(anosSet).sort().reverse();
 
-            // Cria os Checkboxes de Anos (agora chamam atualizarGraficos)
+            // Cria os Checkboxes
             let divAnos = document.getElementById("anosCheckboxes");
             anosDisponiveis.forEach(ano => {
                 let lbl = document.createElement("label");
-                lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="atualizarGraficos()"> ${ano}`;
+                lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="atualizarGraficos()"> <span>${ano}</span>`;
                 divAnos.appendChild(lbl);
             });
 
             processarDadosEAtualizar();
         }
 
-        // Função unificada para atualizar os dois gráficos quando os anos mudam
         function atualizarGraficos() {
             desenharEvolucao();
             desenharSazonalidade();
@@ -215,16 +246,15 @@
             Plotly.newPlot('graficoPrincipal', [trace], layout);
         }
 
-        // 5. DESENHA GRÁFICO 2: SAZONALIDADE
+        // 5. DESENHA GRÁFICO 2: SAZONALIDADE (Somente Ano Atual e Média)
         function desenharSazonalidade() {
             let mes = parseInt(document.getElementById("mesSelect").value);
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
             
-            // Filtra os dados pelo Mês E pelos Anos que estão marcados no checkbox
             let dadosMes = dadosEnriquecidos.filter(d => d.Mes === mes && anosSelecionados.includes(d.Ano));
 
             if (dadosMes.length === 0) {
-                Plotly.purge('graficoSazonalidade'); // Limpa o gráfico se não houver dados
+                Plotly.purge('graficoSazonalidade'); 
                 return;
             }
 
@@ -235,10 +265,12 @@
             });
 
             let anos = Object.keys(dadosPorAno).map(Number);
-            let anoAtual = Math.max(...anosDisponiveis.map(Number)); // Sempre sabe qual é o ano mais recente global
+            let anoAtual = Math.max(...anosDisponiveis.map(Number)); 
             let traces = [];
             let somaRetornosPorDia = {}; 
 
+            // Itera para calcular a média de todos os anos selecionados, 
+            // mas SÓ desenha a linha se for o Ano Atual.
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
                 let x = []; let y = []; let retornoAcumulado = 0;
@@ -252,21 +284,17 @@
                     somaRetornosPorDia[d.TradingDay].push(d.Retorno);
                 });
 
-                if (ano === anoAtual) {
+                // Desenha apenas o Ano Atual (Removemos as linhas cinzas)
+                if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
                     traces.push({
                         x: x, y: y, type: 'scatter', mode: 'lines+markers',
                         line: {color: '#2980b9', width: 3},
                         name: `Ano Atual (${ano})`
                     });
-                } else {
-                    traces.push({
-                        x: x, y: y, type: 'scatter', mode: 'lines',
-                        line: {color: 'gray', width: 1}, opacity: 0.25,
-                        hoverinfo: 'none', showlegend: false, name: ano
-                    });
                 }
             });
 
+            // Linha da Média Histórica da Amostra
             let maxDias = Math.max(...Object.keys(somaRetornosPorDia).map(Number));
             let xAvg = []; let yAvg = []; let mediaAcumulada = 0;
 
@@ -288,6 +316,7 @@
                 name: 'Média Amostra'
             });
 
+            // Linha do Zero (Referência)
             traces.push({
                 x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
                 line: {color: 'white', width: 1, dash: 'dot'},
@@ -301,7 +330,8 @@
                 margin: {t: 10, l: 40, r: 20, b: 40}, hovermode: 'x unified'
             };
 
-            // Aplica os limites do eixo Y definidos pelo usuário
+            // Se os campos de Y Mínimo/Máximo estiverem preenchidos, aplica. 
+            // Caso contrário, deixa o Plotly fazer o autoscale (que agora será perfeito).
             let yMin = document.getElementById("yMin").value;
             let yMax = document.getElementById("yMax").value;
 
