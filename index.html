@@ -1,25 +1,164 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Dashboard Sazonal</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.css" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.js"></script>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sazonal - Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        /* Estilos baseados no seu visual escuro */
+        body {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            background-color: #2b2b2b;
+            width: 250px;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+        }
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        h2 { color: #1f6aa5; }
+        .chart-container {
+            background-color: #2b2b2b;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            background-color: #444;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Filtros</h2>
+        <label>Ativo Principal:</label>
+        <select id="ativoSelect" onchange="atualizarDashboard()"></select>
+        
+        <label>Ano Base:</label>
+        <select id="anoSelect" onchange="atualizarDashboard()">
+            <option value="Todos">Todos os Anos</option>
+        </select>
+    </div>
+
+    <div class="main-content">
+        <h1>Dashboard Multiativos</h1>
+        
+        <div class="chart-container">
+            <div id="graficoPrincipal" style="width:100%; height:400px;"></div>
+        </div>
+    </div>
+
     <script>
-      stlite.mount(
-        {
-          requirements: ["pandas", "matplotlib"], // Bibliotecas que você usa
-          entrypoint: "app.py", // Seu arquivo Python
-          files: {
-            "app.py": { url: "app.py" },
-            "dados.csv": { url: "dados.csv" } // Seus dados
-          }
-        },
-        document.getElementById("root")
-      );
+        let dadosGlobais = [];
+
+        // 1. Usa o PapaParse para ler o seu dados.csv direto do GitHub
+        Papa.parse("dados.csv", {
+            download: true,
+            header: true,
+            dynamicTyping: true, // Já converte os valores para números automaticamente!
+            skipEmptyLines: true,
+            complete: function(results) {
+                dadosGlobais = results.data;
+                inicializarFiltros();
+                atualizarDashboard();
+            },
+            error: function(error) {
+                console.error("Erro ao ler o CSV:", error);
+            }
+        });
+
+        // 2. Prepara as opções da barra lateral
+        function inicializarFiltros() {
+            if (dadosGlobais.length === 0) return;
+
+            // Pega o nome das colunas da primeira linha (ignorando a coluna 'Data')
+            let primeiraLinha = dadosGlobais[0];
+            let colunas = Object.keys(primeiraLinha).filter(k => k !== 'Data');
+            
+            let selectAtivo = document.getElementById("ativoSelect");
+            colunas.forEach(col => {
+                let opt = document.createElement("option");
+                opt.value = col;
+                opt.innerHTML = col;
+                selectAtivo.appendChild(opt);
+            });
+
+            // Extrai os anos disponíveis a partir da coluna 'Data'
+            let anos = new Set();
+            dadosGlobais.forEach(row => {
+                if (row.Data) {
+                    let ano = row.Data.substring(0, 4); // Pega os 4 primeiros caracteres (YYYY)
+                    anos.add(ano);
+                }
+            });
+            
+            let selectAno = document.getElementById("anoSelect");
+            Array.from(anos).sort().reverse().forEach(ano => {
+                let opt = document.createElement("option");
+                opt.value = ano;
+                opt.innerHTML = ano;
+                selectAno.appendChild(opt);
+            });
+        }
+
+        // 3. Desenha os Gráficos
+        function atualizarDashboard() {
+            let ativo = document.getElementById("ativoSelect").value;
+            let anoFiltro = document.getElementById("anoSelect").value;
+
+            // Filtra os dados com base no ano selecionado
+            let dadosFiltrados = dadosGlobais;
+            if (anoFiltro !== "Todos") {
+                dadosFiltrados = dadosGlobais.filter(row => {
+                    return row.Data && row.Data.startsWith(anoFiltro);
+                });
+            }
+
+            // Separa os eixos X e Y para o gráfico
+            let xData = dadosFiltrados.map(row => row.Data);
+            let yData = dadosFiltrados.map(row => row[ativo]);
+
+            // Configuração do Gráfico Principal
+            let trace1 = {
+                x: xData,
+                y: yData,
+                type: 'scatter',
+                mode: 'lines',
+                line: {color: '#00b894'},
+                name: ativo
+            };
+
+            let layoutTemaEscuro = {
+                plot_bgcolor: '#2b2b2b',
+                paper_bgcolor: '#2b2b2b',
+                font: {color: '#e0e0e0'},
+                xaxis: { gridcolor: '#444' },
+                yaxis: { gridcolor: '#444' },
+                margin: {t: 40, l: 40, r: 20, b: 40},
+                title: `Evolução - ${ativo}`
+            };
+
+            Plotly.newPlot('graficoPrincipal', [trace1], layoutTemaEscuro);
+        }
     </script>
-  </body>
+</body>
 </html>
