@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Dashboard Sazonal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.js"></script>
+    <script>
+      stlite.mount(
+        {
+          requirements: ["pandas", "matplotlib"], // Bibliotecas que você usa
+          entrypoint: "app.py", // Seu arquivo Python
+          files: {
+            "app.py": { url: "app.py" },
+            "dados.csv": { url: "dados.csv" } // Seus dados
+          }
+        },
+        document.getElementById("root")
+      );
+    </script>
+  </body>
+</html>
