@@ -28,6 +28,17 @@
             box-shadow: 3px 0 10px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow-y: auto;
             z-index: 10;
         }
+
+        /* --- LOGO --- */
+        .logo-container {
+            margin-bottom: 30px; /* Dá um respiro entre a logo e os filtros */
+        }
+        .logo-container img {
+            max-width: 160px; /* Garante que a logo não fique gigante */
+            height: auto;
+            display: block;
+        }
+
         .sidebar label { font-size: 13px; margin-bottom: 6px; display: block; color: rgb(218, 238, 243); font-weight: bold; }
         
         select {
@@ -85,6 +96,10 @@
 <body>
 
     <div class="sidebar">
+        <div class="logo-container">
+            <img src="logofator.png" alt="Logo Fator">
+        </div>
+
         <h2 style="margin-bottom: 25px; border-bottom: 2px solid rgb(250, 175, 0); padding-bottom: 10px; display: inline-block;">Filtros</h2>
         
         <label>ATIVO NA TELA:</label>
@@ -271,7 +286,6 @@
             let traces = [];
             let somaRetornosPorDia = {}; 
 
-            // Calcula os dados de todos os anos selecionados, mas desenha SÓ o Ano Atual
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
                 let x = []; let y = []; let retornoAcumulado = 0;
@@ -285,7 +299,6 @@
                     somaRetornosPorDia[d.TradingDay].push(d.Retorno);
                 });
 
-                // Desenha apenas o Ano Atual com a cor Amarela solicitada
                 if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
                     traces.push({
                         x: x, y: y, type: 'scatter', mode: 'lines+markers',
@@ -296,7 +309,6 @@
                 }
             });
 
-            // Linha da Média Histórica da Amostra (Usando um cinza clarinho da sua paleta para contraste)
             let maxDias = Math.max(...Object.keys(somaRetornosPorDia).map(Number));
             let xAvg = []; let yAvg = []; let mediaAcumulada = 0;
 
@@ -316,7 +328,6 @@
                 name: 'Média da Amostra'
             });
 
-            // Linha Referência do Zero
             traces.push({
                 x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
                 line: {color: 'rgba(255,255,255,0.3)', width: 1},
@@ -328,7 +339,7 @@
                 xaxis: { title: 'Dia Útil do Mês', gridcolor: COR_GRID },
                 yaxis: { title: 'Retorno Acumulado (%)', gridcolor: COR_GRID, zeroline: false },
                 margin: {t: 10, l: 40, r: 20, b: 40}, hovermode: 'x unified',
-                legend: { orientation: 'h', y: 1.1, x: 0 } // Move a legenda para cima para não poluir o gráfico
+                legend: { orientation: 'h', y: 1.1, x: 0 } 
             };
 
             Plotly.newPlot('graficoSazonalidade', traces, layout);
