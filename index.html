@@ -9,20 +9,17 @@
     <style>
         /* --- ESTILOS GERAIS E PALETA DE CORES --- */
         body {
-            /* Usando o cinza chumbo da sua paleta para o fundo */
             background-color: rgb(35, 55, 70); 
             color: #f2f2f2;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0; display: flex; height: 100vh; overflow: hidden;
         }
         
-        /* Títulos em Branco */
         h2, h3 { color: #ffffff; margin-top: 0; font-weight: 600; letter-spacing: 0.5px; }
         hr { border: 1px solid rgb(120, 135, 145); margin: 20px 0; opacity: 0.3; }
         
         /* --- BARRA LATERAL --- */
         .sidebar {
-            /* Fundo levemente mais escuro para destacar do painel principal */
             background-color: rgb(25, 40, 50); 
             width: 260px; padding: 25px 20px;
             box-shadow: 3px 0 10px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow-y: auto;
@@ -30,14 +27,8 @@
         }
 
         /* --- LOGO --- */
-        .logo-container {
-            margin-bottom: 30px; /* Dá um respiro entre a logo e os filtros */
-        }
-        .logo-container img {
-            max-width: 160px; /* Garante que a logo não fique gigante */
-            height: auto;
-            display: block;
-        }
+        .logo-container { margin-bottom: 30px; }
+        .logo-container img { max-width: 160px; height: auto; display: block; }
 
         .sidebar label { font-size: 13px; margin-bottom: 6px; display: block; color: rgb(218, 238, 243); font-weight: bold; }
         
@@ -102,12 +93,21 @@
 
         <h2 style="margin-bottom: 25px; border-bottom: 2px solid rgb(250, 175, 0); padding-bottom: 10px; display: inline-block;">Filtros</h2>
         
-        <label>ATIVO:</label>
+        <label>ATIVO NA TELA:</label>
         <select id="ativoSelect" onchange="processarDadosEAtualizar()"></select>
         
         <hr>
+
+        <label>CICLO PRESIDENCIAL (BR):</label>
+        <select id="cicloSelect" onchange="aplicarFiltroCiclo()">
+            <option value="livre">Seleção Livre (Manual)</option>
+            <option value="eleitoral">Anos Eleitorais</option>
+            <option value="pre_eleitoral">Anos Pré-Eleitorais</option>
+            <option value="ano1">1º Ano de Governo</option>
+            <option value="ano2">2º Ano de Governo</option>
+        </select>
         
-        <label>ANOS:</label>
+        <label>ANOS NA AMOSTRA:</label>
         <div class="btn-group">
             <button onclick="selecionarTodosAnos(true)">Todos</button>
             <button class="btn-secundario" onclick="selecionarTodosAnos(false)">Limpar</button>
@@ -116,7 +116,7 @@
 
         <hr>
 
-        <label>MÊS:</label>
+        <label>MÊS DA SAZONALIDADE:</label>
         <select id="mesSelect" onchange="desenharSazonalidade()">
             <option value="1">Janeiro</option><option value="2">Fevereiro</option>
             <option value="3">Março</option><option value="4">Abril</option>
@@ -129,7 +129,7 @@
 
     <div class="main-content">
         <div class="chart-container">
-            <h3 id="tituloEvolucao">Preço</h3>
+            <h3 id="tituloEvolucao">Evolução Histórica</h3>
             <div id="graficoPrincipal" style="width:100%; height:350px;"></div>
         </div>
 
@@ -180,11 +180,38 @@
             let divAnos = document.getElementById("anosCheckboxes");
             anosDisponiveis.forEach(ano => {
                 let lbl = document.createElement("label");
-                lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="atualizarGraficos()"> <span>${ano}</span>`;
+                // Modificado: ao clicar manualmente num checkbox, reseta o dropdown de ciclo para "Livre"
+                lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="document.getElementById('cicloSelect').value='livre'; atualizarGraficos()"> <span>${ano}</span>`;
                 divAnos.appendChild(lbl);
             });
 
             processarDadosEAtualizar();
+        }
+
+        // NOVO: LÓGICA DO CICLO PRESIDENCIAL
+        function aplicarFiltroCiclo() {
+            let ciclo = document.getElementById("cicloSelect").value;
+            if (ciclo === "livre") return;
+
+            document.querySelectorAll('.ano-cb').forEach(cb => {
+                let ano = parseInt(cb.value);
+                let marcar = false;
+
+                // Lógica Matemática do Ciclo Brasileiro (Eleições em 1994, 1998, 2002, 2022, etc)
+                if (ciclo === "eleitoral") {
+                    marcar = (ano % 4 === 2);
+                } else if (ciclo === "ano1") {
+                    marcar = (ano % 4 === 3);
+                } else if (ciclo === "ano2") {
+                    marcar = (ano % 4 === 0);
+                } else if (ciclo === "pre_eleitoral") {
+                    marcar = (ano % 4 === 1);
+                }
+
+                cb.checked = marcar;
+            });
+
+            atualizarGraficos();
         }
 
         function atualizarGraficos() {
@@ -193,6 +220,8 @@
         }
 
         function selecionarTodosAnos(marcar) {
+            // Reseta o dropdown de ciclo ao clicar nos botões Todos/Limpar
+            document.getElementById('cicloSelect').value = 'livre';
             document.querySelectorAll('.ano-cb').forEach(cb => cb.checked = marcar);
             atualizarGraficos();
         }
@@ -347,5 +376,3 @@
     </script>
 </body>
 </html>
-
-
