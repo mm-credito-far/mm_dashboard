@@ -14,7 +14,7 @@
         }
         .sidebar {
             background-color: #2b2b2b; width: 250px; padding: 20px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.5); display: flex; flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow-y: auto;
         }
         .main-content {
             flex-grow: 1; padding: 20px; overflow-y: auto; background-color: #1e1e1e;
@@ -24,8 +24,8 @@
             background-color: #2b2b2b; border-radius: 8px; padding: 15px;
             margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        select, button {
-            width: 100%; padding: 10px; margin-bottom: 15px;
+        select, button, input {
+            width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box;
             background-color: #444; color: white; border: none; border-radius: 4px;
         }
         .checkbox-list {
@@ -34,6 +34,11 @@
         }
         .checkbox-list label { cursor: pointer; font-size: 14px; }
         hr { border: 1px solid #444; margin: 20px 0; }
+        
+        /* Ajuste para colocar os inputs de Y lado a lado */
+        .eixo-y-container {
+            display: flex; gap: 10px; margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -55,7 +60,7 @@
 
         <hr>
 
-        <label><b>Mês (MtD):</b></label>
+        <label><b>Mês da Sazonalidade:</b></label>
         <select id="mesSelect" onchange="desenharSazonalidade()">
             <option value="1">Janeiro</option><option value="2">Fevereiro</option>
             <option value="3">Março</option><option value="4">Abril</option>
@@ -64,6 +69,14 @@
             <option value="9">Setembro</option><option value="10">Outubro</option>
             <option value="11">Novembro</option><option value="12">Dezembro</option>
         </select>
+
+        <label><b>Ajuste Eixo Y (%):</b></label>
+        <div class="eixo-y-container">
+            <input type="number" id="yMin" placeholder="Mínimo" step="0.1">
+            <input type="number" id="yMax" placeholder="Máximo" step="0.1">
+        </div>
+        <button onclick="desenharSazonalidade()" style="margin-top:-5px;">Aplicar Eixo</button>
+
     </div>
 
     <div class="main-content">
@@ -82,14 +95,14 @@
 
     <script>
         let dadosBrutos = [];
-        let dadosEnriquecidos = []; // Terá os cálculos de Retorno e Dia Útil
+        let dadosEnriquecidos = []; 
         let anosDisponiveis = [];
 
         // 1. LÊ O ARQUIVO CSV
         Papa.parse("dados.csv", {
             download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
             complete: function(results) {
-                dadosBrutos = results.data.filter(row => row.Data); // Garante que tem data
+                dadosBrutos = results.data.filter(row => row.Data); 
                 inicializarInterface();
             }
         });
@@ -114,24 +127,29 @@
             });
             anosDisponiveis = Array.from(anosSet).sort().reverse();
 
-            // Cria os Checkboxes de Anos
+            // Cria os Checkboxes de Anos (agora chamam atualizarGraficos)
             let divAnos = document.getElementById("anosCheckboxes");
             anosDisponiveis.forEach(ano => {
                 let lbl = document.createElement("label");
-                lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="desenharEvolucao()"> ${ano}`;
+                lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="atualizarGraficos()"> ${ano}`;
                 divAnos.appendChild(lbl);
             });
 
-            // Roda a primeira vez
             processarDadosEAtualizar();
+        }
+
+        // Função unificada para atualizar os dois gráficos quando os anos mudam
+        function atualizarGraficos() {
+            desenharEvolucao();
+            desenharSazonalidade();
         }
 
         function selecionarTodosAnos(marcar) {
             document.querySelectorAll('.ano-cb').forEach(cb => cb.checked = marcar);
-            desenharEvolucao();
+            atualizarGraficos();
         }
 
-        // 3. FAZ AS CONTAS DO PANDAS (Retorno e Dia Útil)
+        // 3. FAZ AS CONTAS BÁSICAS (Retorno e Dia Útil)
         function processarDadosEAtualizar() {
             let ativo = document.getElementById("ativoSelect").value;
             dadosEnriquecidos = [];
@@ -141,7 +159,6 @@
             let currentMonth = null;
             let tradingDay = 1;
 
-            // Ordena os dados por data por segurança
             dadosBrutos.sort((a, b) => a.Data.localeCompare(b.Data));
 
             for (let i = 0; i < dadosBrutos.length; i++) {
@@ -149,16 +166,13 @@
                 let close = parseFloat(row[ativo]);
                 if (isNaN(close)) continue;
 
-                // Extrai Ano, Mês e Dia de "YYYY-MM-DD"
                 let partesData = row.Data.split('-');
                 let y = parseInt(partesData[0]);
                 let m = parseInt(partesData[1]);
 
-                // Cálculo do Retorno (%)
                 let retorno = previousClose !== null ? (close - previousClose) / previousClose : 0;
                 previousClose = close;
 
-                // Cálculo do TradingDay (Dia Útil do Mês)
                 if (y !== currentYear || m !== currentMonth) {
                     tradingDay = 1;
                     currentYear = y; currentMonth = m;
@@ -172,15 +186,12 @@
                 });
             }
 
-            desenharEvolucao();
-            desenharSazonalidade();
+            atualizarGraficos();
         }
 
-        // 4. DESENHA GRÁFICO 1: EVOLUÇÃO COM FILTRO
+        // 4. DESENHA GRÁFICO 1: EVOLUÇÃO
         function desenharEvolucao() {
             let ativo = document.getElementById("ativoSelect").value;
-            
-            // Pega os anos marcados no checkbox
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
 
             let dadosFiltrados = dadosEnriquecidos.filter(d => anosSelecionados.includes(d.Ano));
@@ -207,11 +218,16 @@
         // 5. DESENHA GRÁFICO 2: SAZONALIDADE
         function desenharSazonalidade() {
             let mes = parseInt(document.getElementById("mesSelect").value);
-            let dadosMes = dadosEnriquecidos.filter(d => d.Mes === mes);
+            let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
+            
+            // Filtra os dados pelo Mês E pelos Anos que estão marcados no checkbox
+            let dadosMes = dadosEnriquecidos.filter(d => d.Mes === mes && anosSelecionados.includes(d.Ano));
 
-            if (dadosMes.length === 0) return;
+            if (dadosMes.length === 0) {
+                Plotly.purge('graficoSazonalidade'); // Limpa o gráfico se não houver dados
+                return;
+            }
 
-            // Agrupa por Ano
             let dadosPorAno = {};
             dadosMes.forEach(d => {
                 if(!dadosPorAno[d.Ano]) dadosPorAno[d.Ano] = [];
@@ -219,11 +235,10 @@
             });
 
             let anos = Object.keys(dadosPorAno).map(Number);
-            let anoAtual = Math.max(...anos); // O ano mais recente do seu CSV
+            let anoAtual = Math.max(...anosDisponiveis.map(Number)); // Sempre sabe qual é o ano mais recente global
             let traces = [];
-            let somaRetornosPorDia = {}; // Para calcular a média depois
+            let somaRetornosPorDia = {}; 
 
-            // Linhas dos Anos Históricos e Ano Atual
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
                 let x = []; let y = []; let retornoAcumulado = 0;
@@ -233,20 +248,17 @@
                     x.push(d.TradingDay);
                     y.push(retornoAcumulado);
 
-                    // Guarda para fazer a média
                     if(!somaRetornosPorDia[d.TradingDay]) somaRetornosPorDia[d.TradingDay] = [];
                     somaRetornosPorDia[d.TradingDay].push(d.Retorno);
                 });
 
                 if (ano === anoAtual) {
-                    // Linha Destaque (Ano Atual)
                     traces.push({
                         x: x, y: y, type: 'scatter', mode: 'lines+markers',
                         line: {color: '#2980b9', width: 3},
                         name: `Ano Atual (${ano})`
                     });
                 } else {
-                    // Linhas Cinzas (Histórico)
                     traces.push({
                         x: x, y: y, type: 'scatter', mode: 'lines',
                         line: {color: 'gray', width: 1}, opacity: 0.25,
@@ -255,7 +267,6 @@
                 }
             });
 
-            // Linha da Média Histórica
             let maxDias = Math.max(...Object.keys(somaRetornosPorDia).map(Number));
             let xAvg = []; let yAvg = []; let mediaAcumulada = 0;
 
@@ -269,15 +280,14 @@
                 }
             }
 
-            let corMedia = mediaAcumulada >= 0 ? '#00e676' : '#ff1744'; // Verde se positivo, Vermelho se negativo
+            let corMedia = mediaAcumulada >= 0 ? '#00e676' : '#ff1744'; 
 
             traces.push({
                 x: xAvg, y: yAvg, type: 'scatter', mode: 'lines',
                 line: {color: corMedia, width: 4},
-                name: 'Média Histórica'
+                name: 'Média Amostra'
             });
 
-            // Linha do Zero
             traces.push({
                 x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
                 line: {color: 'white', width: 1, dash: 'dot'},
@@ -291,10 +301,19 @@
                 margin: {t: 10, l: 40, r: 20, b: 40}, hovermode: 'x unified'
             };
 
+            // Aplica os limites do eixo Y definidos pelo usuário
+            let yMin = document.getElementById("yMin").value;
+            let yMax = document.getElementById("yMax").value;
+
+            if (yMin !== "" || yMax !== "") {
+                layout.yaxis.range = [
+                    yMin !== "" ? parseFloat(yMin) : null,
+                    yMax !== "" ? parseFloat(yMax) : null
+                ];
+            }
+
             Plotly.newPlot('graficoSazonalidade', traces, layout);
         }
     </script>
 </body>
 </html>
-
-
