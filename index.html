@@ -3,161 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multimercado - Dashboard</title>
+    <title>Sazonal - Dashboard Multiativos</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        /* Estilos baseados no seu visual escuro */
         body {
-            background-color: #1e1e1e;
-            color: #e0e0e0;
+            background-color: #1e1e1e; color: #e0e0e0;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            display: flex;
-            height: 100vh;
+            margin: 0; display: flex; height: 100vh; overflow: hidden;
         }
         .sidebar {
-            background-color: #2b2b2b;
-            width: 250px;
-            padding: 20px;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+            background-color: #2b2b2b; width: 250px; padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5); display: flex; flex-direction: column;
         }
         .main-content {
-            flex-grow: 1;
-            padding: 20px;
-            overflow-y: auto;
+            flex-grow: 1; padding: 20px; overflow-y: auto; background-color: #1e1e1e;
         }
-        h2 { color: #1f6aa5; }
+        h2, h3 { color: #1f6aa5; margin-top: 0; }
         .chart-container {
-            background-color: #2b2b2b;
-            border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            background-color: #2b2b2b; border-radius: 8px; padding: 15px;
+            margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         select, button {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            background-color: #444;
-            color: white;
-            border: none;
-            border-radius: 4px;
+            width: 100%; padding: 10px; margin-bottom: 15px;
+            background-color: #444; color: white; border: none; border-radius: 4px;
         }
+        .checkbox-list {
+            background-color: #333; padding: 10px; border-radius: 4px;
+            max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;
+        }
+        .checkbox-list label { cursor: pointer; font-size: 14px; }
+        hr { border: 1px solid #444; margin: 20px 0; }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
         <h2>Filtros</h2>
-        <label>Ativo:</label>
-        <select id="ativoSelect" onchange="atualizarDashboard()"></select>
         
-        <label>Ano Base:</label>
-        <select id="anoSelect" onchange="atualizarDashboard()">
-            <option value="Todos">Todos os Anos</option>
+        <label><b>Ativo Principal:</b></label>
+        <select id="ativoSelect" onchange="processarDadosEAtualizar()"></select>
+        
+        <hr>
+        
+        <label><b>Filtro de Anos (Evolução):</b></label>
+        <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+            <button onclick="selecionarTodosAnos(true)" style="margin:0; padding:5px;">Todos</button>
+            <button onclick="selecionarTodosAnos(false)" style="margin:0; padding:5px;">Limpar</button>
+        </div>
+        <div id="anosCheckboxes" class="checkbox-list"></div>
+
+        <hr>
+
+        <label><b>Mês da Sazonalidade:</b></label>
+        <select id="mesSelect" onchange="desenharSazonalidade()">
+            <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+            <option value="3">Março</option><option value="4">Abril</option>
+            <option value="5">Maio</option><option value="6">Junho</option>
+            <option value="7">Julho</option><option value="8">Agosto</option>
+            <option value="9">Setembro</option><option value="10">Outubro</option>
+            <option value="11">Novembro</option><option value="12">Dezembro</option>
         </select>
     </div>
 
     <div class="main-content">
-        <h1>Dashboard de sazonalidade</h1>
+        <h1 style="margin-top:0;">Dashboard Analítico</h1>
         
         <div class="chart-container">
-            <div id="graficoPrincipal" style="width:100%; height:400px;"></div>
+            <h3 id="tituloEvolucao">Evolução Histórica</h3>
+            <div id="graficoPrincipal" style="width:100%; height:350px;"></div>
+        </div>
+
+        <div class="chart-container">
+            <h3 id="tituloSazonalidade">Sazonalidade do Mês</h3>
+            <div id="graficoSazonalidade" style="width:100%; height:400px;"></div>
         </div>
     </div>
 
     <script>
-        let dadosGlobais = [];
+        let dadosBrutos = [];
+        let dadosEnriquecidos = []; // Terá os cálculos de Retorno e Dia Útil
+        let anosDisponiveis = [];
 
-        // 1. Usa o PapaParse para ler o seu dados.csv direto do GitHub
+        // 1. LÊ O ARQUIVO CSV
         Papa.parse("dados.csv", {
-            download: true,
-            header: true,
-            dynamicTyping: true, // Já converte os valores para números automaticamente!
-            skipEmptyLines: true,
+            download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
             complete: function(results) {
-                dadosGlobais = results.data;
-                inicializarFiltros();
-                atualizarDashboard();
-            },
-            error: function(error) {
-                console.error("Erro ao ler o CSV:", error);
+                dadosBrutos = results.data.filter(row => row.Data); // Garante que tem data
+                inicializarInterface();
             }
         });
 
-        // 2. Prepara as opções da barra lateral
-        function inicializarFiltros() {
-            if (dadosGlobais.length === 0) return;
+        // 2. CRIA OS BOTÕES E MENUS
+        function inicializarInterface() {
+            if (dadosBrutos.length === 0) return;
 
-            // Pega o nome das colunas da primeira linha (ignorando a coluna 'Data')
-            let primeiraLinha = dadosGlobais[0];
-            let colunas = Object.keys(primeiraLinha).filter(k => k !== 'Data');
-            
+            // Preenche os Ativos
+            let colunas = Object.keys(dadosBrutos[0]).filter(k => k !== 'Data');
             let selectAtivo = document.getElementById("ativoSelect");
             colunas.forEach(col => {
                 let opt = document.createElement("option");
-                opt.value = col;
-                opt.innerHTML = col;
+                opt.value = col; opt.innerHTML = col;
                 selectAtivo.appendChild(opt);
             });
 
-            // Extrai os anos disponíveis a partir da coluna 'Data'
-            let anos = new Set();
-            dadosGlobais.forEach(row => {
-                if (row.Data) {
-                    let ano = row.Data.substring(0, 4); // Pega os 4 primeiros caracteres (YYYY)
-                    anos.add(ano);
-                }
+            // Descobre todos os anos existentes
+            let anosSet = new Set();
+            dadosBrutos.forEach(row => {
+                anosSet.add(row.Data.substring(0, 4));
             });
-            
-            let selectAno = document.getElementById("anoSelect");
-            Array.from(anos).sort().reverse().forEach(ano => {
-                let opt = document.createElement("option");
-                opt.value = ano;
-                opt.innerHTML = ano;
-                selectAno.appendChild(opt);
+            anosDisponiveis = Array.from(anosSet).sort().reverse();
+
+            // Cria os Checkboxes de Anos
+            let divAnos = document.getElementById("anosCheckboxes");
+            anosDisponiveis.forEach(ano => {
+                let lbl = document.createElement("label");
+                lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="desenharEvolucao()"> ${ano}`;
+                divAnos.appendChild(lbl);
             });
+
+            // Roda a primeira vez
+            processarDadosEAtualizar();
         }
 
-        // 3. Desenha os Gráficos
-        function atualizarDashboard() {
-            let ativo = document.getElementById("ativoSelect").value;
-            let anoFiltro = document.getElementById("anoSelect").value;
+        function selecionarTodosAnos(marcar) {
+            document.querySelectorAll('.ano-cb').forEach(cb => cb.checked = marcar);
+            desenharEvolucao();
+        }
 
-            // Filtra os dados com base no ano selecionado
-            let dadosFiltrados = dadosGlobais;
-            if (anoFiltro !== "Todos") {
-                dadosFiltrados = dadosGlobais.filter(row => {
-                    return row.Data && row.Data.startsWith(anoFiltro);
+        // 3. FAZ AS CONTAS DO PANDAS (Retorno e Dia Útil)
+        function processarDadosEAtualizar() {
+            let ativo = document.getElementById("ativoSelect").value;
+            dadosEnriquecidos = [];
+            
+            let previousClose = null;
+            let currentYear = null;
+            let currentMonth = null;
+            let tradingDay = 1;
+
+            // Ordena os dados por data por segurança
+            dadosBrutos.sort((a, b) => a.Data.localeCompare(b.Data));
+
+            for (let i = 0; i < dadosBrutos.length; i++) {
+                let row = dadosBrutos[i];
+                let close = parseFloat(row[ativo]);
+                if (isNaN(close)) continue;
+
+                // Extrai Ano, Mês e Dia de "YYYY-MM-DD"
+                let partesData = row.Data.split('-');
+                let y = parseInt(partesData[0]);
+                let m = parseInt(partesData[1]);
+
+                // Cálculo do Retorno (%)
+                let retorno = previousClose !== null ? (close - previousClose) / previousClose : 0;
+                previousClose = close;
+
+                // Cálculo do TradingDay (Dia Útil do Mês)
+                if (y !== currentYear || m !== currentMonth) {
+                    tradingDay = 1;
+                    currentYear = y; currentMonth = m;
+                } else {
+                    tradingDay++;
+                }
+
+                dadosEnriquecidos.push({
+                    Data: row.Data, Ano: y, Mes: m, 
+                    TradingDay: tradingDay, Close: close, Retorno: retorno
                 });
             }
 
-            // Separa os eixos X e Y para o gráfico
-            let xData = dadosFiltrados.map(row => row.Data);
-            let yData = dadosFiltrados.map(row => row[ativo]);
+            desenharEvolucao();
+            desenharSazonalidade();
+        }
 
-            // Configuração do Gráfico Principal
-            let trace1 = {
-                x: xData,
-                y: yData,
-                type: 'scatter',
-                mode: 'lines',
-                line: {color: '#00b894'},
+        // 4. DESENHA GRÁFICO 1: EVOLUÇÃO COM FILTRO
+        function desenharEvolucao() {
+            let ativo = document.getElementById("ativoSelect").value;
+            
+            // Pega os anos marcados no checkbox
+            let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
+
+            let dadosFiltrados = dadosEnriquecidos.filter(d => anosSelecionados.includes(d.Ano));
+
+            let trace = {
+                x: dadosFiltrados.map(d => d.Data),
+                y: dadosFiltrados.map(d => d.Close),
+                type: 'scatter', mode: 'lines',
+                line: {color: '#00b894', width: 1.5},
+                fill: 'tozeroy', fillcolor: 'rgba(0, 184, 148, 0.1)',
                 name: ativo
             };
 
-            let layoutTemaEscuro = {
-                plot_bgcolor: '#2b2b2b',
-                paper_bgcolor: '#2b2b2b',
-                font: {color: '#e0e0e0'},
-                xaxis: { gridcolor: '#444' },
-                yaxis: { gridcolor: '#444' },
-                margin: {t: 40, l: 40, r: 20, b: 40},
-                title: `Evolução - ${ativo}`
+            let layout = {
+                plot_bgcolor: '#2b2b2b', paper_bgcolor: '#2b2b2b', font: {color: '#e0e0e0'},
+                xaxis: { gridcolor: '#444' }, yaxis: { gridcolor: '#444' },
+                margin: {t: 10, l: 40, r: 20, b: 30},
+                hovermode: 'x unified'
             };
 
-            Plotly.newPlot('graficoPrincipal', [trace1], layoutTemaEscuro);
+            Plotly.newPlot('graficoPrincipal', [trace], layout);
+        }
+
+        // 5. DESENHA GRÁFICO 2: SAZONALIDADE
+        function desenharSazonalidade() {
+            let mes = parseInt(document.getElementById("mesSelect").value);
+            let dadosMes = dadosEnriquecidos.filter(d => d.Mes === mes);
+
+            if (dadosMes.length === 0) return;
+
+            // Agrupa por Ano
+            let dadosPorAno = {};
+            dadosMes.forEach(d => {
+                if(!dadosPorAno[d.Ano]) dadosPorAno[d.Ano] = [];
+                dadosPorAno[d.Ano].push(d);
+            });
+
+            let anos = Object.keys(dadosPorAno).map(Number);
+            let anoAtual = Math.max(...anos); // O ano mais recente do seu CSV
+            let traces = [];
+            let somaRetornosPorDia = {}; // Para calcular a média depois
+
+            // Linhas dos Anos Históricos e Ano Atual
+            anos.forEach(ano => {
+                let dadosDoAno = dadosPorAno[ano];
+                let x = []; let y = []; let retornoAcumulado = 0;
+
+                dadosDoAno.forEach(d => {
+                    retornoAcumulado += (d.Retorno * 100);
+                    x.push(d.TradingDay);
+                    y.push(retornoAcumulado);
+
+                    // Guarda para fazer a média
+                    if(!somaRetornosPorDia[d.TradingDay]) somaRetornosPorDia[d.TradingDay] = [];
+                    somaRetornosPorDia[d.TradingDay].push(d.Retorno);
+                });
+
+                if (ano === anoAtual) {
+                    // Linha Destaque (Ano Atual)
+                    traces.push({
+                        x: x, y: y, type: 'scatter', mode: 'lines+markers',
+                        line: {color: '#2980b9', width: 3},
+                        name: `Ano Atual (${ano})`
+                    });
+                } else {
+                    // Linhas Cinzas (Histórico)
+                    traces.push({
+                        x: x, y: y, type: 'scatter', mode: 'lines',
+                        line: {color: 'gray', width: 1}, opacity: 0.25,
+                        hoverinfo: 'none', showlegend: false, name: ano
+                    });
+                }
+            });
+
+            // Linha da Média Histórica
+            let maxDias = Math.max(...Object.keys(somaRetornosPorDia).map(Number));
+            let xAvg = []; let yAvg = []; let mediaAcumulada = 0;
+
+            for(let i=1; i<=maxDias; i++) {
+                if(somaRetornosPorDia[i]) {
+                    let rets = somaRetornosPorDia[i];
+                    let mediaDiaria = rets.reduce((a,b) => a+b, 0) / rets.length;
+                    mediaAcumulada += (mediaDiaria * 100);
+                    xAvg.push(i);
+                    yAvg.push(mediaAcumulada);
+                }
+            }
+
+            let corMedia = mediaAcumulada >= 0 ? '#00e676' : '#ff1744'; // Verde se positivo, Vermelho se negativo
+
+            traces.push({
+                x: xAvg, y: yAvg, type: 'scatter', mode: 'lines',
+                line: {color: corMedia, width: 4},
+                name: 'Média Histórica'
+            });
+
+            // Linha do Zero
+            traces.push({
+                x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
+                line: {color: 'white', width: 1, dash: 'dot'},
+                hoverinfo: 'none', showlegend: false
+            });
+
+            let layout = {
+                plot_bgcolor: '#2b2b2b', paper_bgcolor: '#2b2b2b', font: {color: '#e0e0e0'},
+                xaxis: { title: 'Dia Útil do Mês', gridcolor: '#444' },
+                yaxis: { title: 'Retorno Acumulado (%)', gridcolor: '#444' },
+                margin: {t: 10, l: 40, r: 20, b: 40}, hovermode: 'x unified'
+            };
+
+            Plotly.newPlot('graficoSazonalidade', traces, layout);
         }
     </script>
 </body>
