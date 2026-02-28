@@ -93,7 +93,7 @@
 
         <h2 style="margin-bottom: 25px; border-bottom: 2px solid rgb(250, 175, 0); padding-bottom: 10px; display: inline-block;">Filtros</h2>
         
-        <label>ATIVO NA TELA:</label>
+        <label>ATIVO:</label>
         <select id="ativoSelect" onchange="processarDadosEAtualizar()"></select>
         
         <hr>
@@ -107,7 +107,7 @@
             <option value="ano2">2º Ano de Governo</option>
         </select>
         
-        <label>ANOS NA AMOSTRA:</label>
+        <label>ANOS:</label>
         <div class="btn-group">
             <button onclick="selecionarTodosAnos(true)">Todos</button>
             <button class="btn-secundario" onclick="selecionarTodosAnos(false)">Limpar</button>
@@ -116,7 +116,7 @@
 
         <hr>
 
-        <label>MÊS DA SAZONALIDADE:</label>
+        <label>MÊS:</label>
         <select id="mesSelect" onchange="desenharSazonalidade()">
             <option value="1">Janeiro</option><option value="2">Fevereiro</option>
             <option value="3">Março</option><option value="4">Abril</option>
@@ -129,12 +129,12 @@
 
     <div class="main-content">
         <div class="chart-container">
-            <h3 id="tituloEvolucao">Evolução Histórica</h3>
+            <h3 id="tituloEvolucao">Preço</h3>
             <div id="graficoPrincipal" style="width:100%; height:350px;"></div>
         </div>
 
         <div class="chart-container">
-            <h3 id="tituloSazonalidade">Sazonalidade do Mês</h3>
+            <h3 id="tituloSazonalidade">Média sazonal</h3>
             <div id="graficoSazonalidade" style="width:100%; height:400px;"></div>
         </div>
     </div>
@@ -376,3 +376,4 @@
     </script>
 </body>
 </html>
+
