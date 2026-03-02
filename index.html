@@ -276,7 +276,7 @@
                 if (anosSelecionados.includes(d.Ano)) {
                     yData.push(d.Close);
                 } else {
-                    yData.push(null); // Insere buraco nos dados para forçar quebra visual da linha
+                    yData.push(null); 
                 }
             });
 
@@ -285,7 +285,7 @@
                 y: yData,
                 type: 'scatter', mode: 'lines',
                 line: {color: COR_SERIE, width: 2},
-                connectgaps: false, // Isso impede o Plotly de ligar pontos passando pelo vazio
+                connectgaps: false, 
                 name: ativo
             };
 
@@ -299,7 +299,7 @@
             Plotly.newPlot('graficoPrincipal', [trace], layout);
         }
 
-        // 5. DESENHA GRÁFICO 2: SAZONALIDADE E YTD
+        // 5. DESENHA GRÁFICO 2: SAZONALIDADE (COMPOSIÇÃO CORRETA MtD + YTD MESMA ESCALA)
         function desenharSazonalidade() {
             let mes = parseInt(document.getElementById("mesSelect").value);
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
@@ -320,20 +320,23 @@
             let anos = Object.keys(dadosPorAno).map(Number);
             let anoAtual = Math.max(...anosDisponiveis.map(Number)); 
             let traces = [];
-            let somaRetornosPorDia = {}; 
+            let somaMtDPorDia = {}; 
 
-            // -- SÉRIE: ANO ATUAL (Retorno no mês)
+            // -- SÉRIE: ANO ATUAL (Cálculo do MtD Correto)
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
-                let x = []; let y = []; let retornoAcumulado = 0;
+                let x = []; let y = []; 
+                let fatorAcumulado = 1; 
 
                 dadosDoAno.forEach(d => {
-                    retornoAcumulado += (d.Retorno * 100);
-                    x.push(d.TradingDay);
-                    y.push(retornoAcumulado);
+                    fatorAcumulado *= (1 + d.Retorno); 
+                    let mtdReal = (fatorAcumulado - 1) * 100; 
 
-                    if(!somaRetornosPorDia[d.TradingDay]) somaRetornosPorDia[d.TradingDay] = [];
-                    somaRetornosPorDia[d.TradingDay].push(d.Retorno);
+                    x.push(d.TradingDay);
+                    y.push(mtdReal);
+
+                    if(!somaMtDPorDia[d.TradingDay]) somaMtDPorDia[d.TradingDay] = [];
+                    somaMtDPorDia[d.TradingDay].push(mtdReal);
                 });
 
                 if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
@@ -346,38 +349,38 @@
                 }
             });
 
-            // -- SÉRIE: MÉDIA DA AMOSTRA
-            let maxDias = Math.max(...Object.keys(somaRetornosPorDia).map(Number));
-            let xAvg = []; let yAvg = []; let mediaAcumulada = 0;
+            // -- SÉRIE: MÉDIA DA AMOSTRA (Média dos caminhos MtD)
+            let maxDias = Math.max(...Object.keys(somaMtDPorDia).map(Number));
+            let xAvg = []; let yAvg = []; 
 
             for(let i=1; i<=maxDias; i++) {
-                if(somaRetornosPorDia[i]) {
-                    let rets = somaRetornosPorDia[i];
-                    let mediaDiaria = rets.reduce((a,b) => a+b, 0) / rets.length;
-                    mediaAcumulada += (mediaDiaria * 100);
+                if(somaMtDPorDia[i]) {
+                    let mtdsDesseDia = somaMtDPorDia[i];
+                    let mediaMtDAmostra = mtdsDesseDia.reduce((a,b) => a+b, 0) / mtdsDesseDia.length;
+                    
                     xAvg.push(i);
-                    yAvg.push(mediaAcumulada);
+                    yAvg.push(mediaMtDAmostra);
                 }
             }
 
             traces.push({
                 x: xAvg, y: yAvg, type: 'scatter', mode: 'lines',
                 line: {color: 'rgb(242, 242, 242)', width: 3, dash: 'dot'},
-                name: 'Média da Amostra'
+                name: 'Média da Amostra (MtD)'
             });
 
+            // Linha do Zero
             traces.push({
                 x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
                 line: {color: 'rgba(255,255,255,0.3)', width: 1},
                 hoverinfo: 'none', showlegend: false
             });
 
-            // -- NOVA SÉRIE: YTD DO ANO ATUAL (No eixo Y Secundário)
+            // -- SÉRIE: YTD DO ANO ATUAL (Agora no mesmo Eixo Y Principal)
             if (anosSelecionados.includes(anoAtual)) {
                 let dadosAnoAnterior = dadosEnriquecidos.filter(d => d.Ano === anoAtual - 1);
                 let closeFinalAnoAnterior = null;
                 
-                // Pega o fechamento do último dia do ano anterior para calcular o YTD
                 if (dadosAnoAnterior.length > 0) {
                     closeFinalAnoAnterior = dadosAnoAnterior[dadosAnoAnterior.length - 1].Close;
                 } else {
@@ -399,7 +402,7 @@
                     traces.push({
                         x: xYtd, y: yYtd, type: 'scatter', mode: 'lines',
                         line: {color: COR_YTD, width: 2, dash: 'dash'},
-                        yaxis: 'y2', // Manda essa linha pro eixo direito
+                        // Removido o 'yaxis: y2' para que ele use o eixo principal
                         name: `YTD Ano Atual (${anoAtual})`
                     });
                 }
@@ -408,18 +411,8 @@
             let layout = {
                 plot_bgcolor: COR_FUNDO_GRAFICO, paper_bgcolor: COR_FUNDO_GRAFICO, font: {color: COR_TEXTO},
                 xaxis: { title: 'Dia Útil do Mês', gridcolor: COR_GRID },
-                yaxis: { title: 'Retorno no Mês (%)', gridcolor: COR_GRID, zeroline: false },
-                // Configuração do Eixo Y Secundário (Direita) para o YTD
-                yaxis2: { 
-                    title: 'Retorno YTD (%)', 
-                    overlaying: 'y', 
-                    side: 'right', 
-                    showgrid: false, 
-                    zeroline: false,
-                    titlefont: {color: COR_YTD},
-                    tickfont: {color: COR_YTD}
-                },
-                margin: {t: 10, l: 40, r: 50, b: 40}, // Margem direita maior pra caber o eixo YTD
+                yaxis: { title: 'Retorno (%)', gridcolor: COR_GRID, zeroline: false }, // Título simplificado para abranger MtD e YTD
+                margin: {t: 10, l: 40, r: 20, b: 40}, // Margem direita (r) retornou ao padrão de 20
                 hovermode: 'x unified',
                 legend: { orientation: 'h', y: 1.15, x: 0 } 
             };
@@ -429,4 +422,3 @@
     </script>
 </body>
 </html>
-
