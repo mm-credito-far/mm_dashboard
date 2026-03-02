@@ -146,6 +146,7 @@
 
         // Cores extraídas da paleta
         const COR_SERIE = 'rgb(250, 175, 0)';
+        const COR_YTD = 'rgb(218, 238, 243)'; // Azul clarinho para o YTD
         const COR_FUNDO_GRAFICO = 'rgb(25, 40, 50)';
         const COR_GRID = 'rgba(120, 135, 145, 0.2)';
         const COR_TEXTO = '#ffffff';
@@ -180,7 +181,6 @@
             let divAnos = document.getElementById("anosCheckboxes");
             anosDisponiveis.forEach(ano => {
                 let lbl = document.createElement("label");
-                // Modificado: ao clicar manualmente num checkbox, reseta o dropdown de ciclo para "Livre"
                 lbl.innerHTML = `<input type="checkbox" class="ano-cb" value="${ano}" checked onchange="document.getElementById('cicloSelect').value='livre'; atualizarGraficos()"> <span>${ano}</span>`;
                 divAnos.appendChild(lbl);
             });
@@ -188,7 +188,6 @@
             processarDadosEAtualizar();
         }
 
-        // NOVO: LÓGICA DO CICLO PRESIDENCIAL
         function aplicarFiltroCiclo() {
             let ciclo = document.getElementById("cicloSelect").value;
             if (ciclo === "livre") return;
@@ -197,7 +196,6 @@
                 let ano = parseInt(cb.value);
                 let marcar = false;
 
-                // Lógica Matemática do Ciclo Brasileiro (Eleições em 1994, 1998, 2002, 2022, etc)
                 if (ciclo === "eleitoral") {
                     marcar = (ano % 4 === 2);
                 } else if (ciclo === "ano1") {
@@ -220,7 +218,6 @@
         }
 
         function selecionarTodosAnos(marcar) {
-            // Reseta o dropdown de ciclo ao clicar nos botões Todos/Limpar
             document.getElementById('cicloSelect').value = 'livre';
             document.querySelectorAll('.ano-cb').forEach(cb => cb.checked = marcar);
             atualizarGraficos();
@@ -266,19 +263,29 @@
             atualizarGraficos();
         }
 
-        // 4. DESENHA GRÁFICO 1: EVOLUÇÃO
+        // 4. DESENHA GRÁFICO 1: EVOLUÇÃO (COM GAPS)
         function desenharEvolucao() {
             let ativo = document.getElementById("ativoSelect").value;
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
 
-            let dadosFiltrados = dadosEnriquecidos.filter(d => anosSelecionados.includes(d.Ano));
+            let xData = [];
+            let yData = [];
+
+            dadosEnriquecidos.forEach(d => {
+                xData.push(d.Data);
+                if (anosSelecionados.includes(d.Ano)) {
+                    yData.push(d.Close);
+                } else {
+                    yData.push(null); // Insere buraco nos dados para forçar quebra visual da linha
+                }
+            });
 
             let trace = {
-                x: dadosFiltrados.map(d => d.Data),
-                y: dadosFiltrados.map(d => d.Close),
+                x: xData,
+                y: yData,
                 type: 'scatter', mode: 'lines',
                 line: {color: COR_SERIE, width: 2},
-                fill: 'tozeroy', fillcolor: 'rgba(250, 175, 0, 0.08)',
+                connectgaps: false, // Isso impede o Plotly de ligar pontos passando pelo vazio
                 name: ativo
             };
 
@@ -292,7 +299,7 @@
             Plotly.newPlot('graficoPrincipal', [trace], layout);
         }
 
-        // 5. DESENHA GRÁFICO 2: SAZONALIDADE LIMPO E AUTOMÁTICO
+        // 5. DESENHA GRÁFICO 2: SAZONALIDADE E YTD
         function desenharSazonalidade() {
             let mes = parseInt(document.getElementById("mesSelect").value);
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
@@ -315,6 +322,7 @@
             let traces = [];
             let somaRetornosPorDia = {}; 
 
+            // -- SÉRIE: ANO ATUAL (Retorno no mês)
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
                 let x = []; let y = []; let retornoAcumulado = 0;
@@ -333,11 +341,12 @@
                         x: x, y: y, type: 'scatter', mode: 'lines+markers',
                         line: {color: COR_SERIE, width: 3},
                         marker: {size: 6},
-                        name: `Ano Atual (${ano})`
+                        name: `Ano Atual Mês (${ano})`
                     });
                 }
             });
 
+            // -- SÉRIE: MÉDIA DA AMOSTRA
             let maxDias = Math.max(...Object.keys(somaRetornosPorDia).map(Number));
             let xAvg = []; let yAvg = []; let mediaAcumulada = 0;
 
@@ -363,12 +372,56 @@
                 hoverinfo: 'none', showlegend: false
             });
 
+            // -- NOVA SÉRIE: YTD DO ANO ATUAL (No eixo Y Secundário)
+            if (anosSelecionados.includes(anoAtual)) {
+                let dadosAnoAnterior = dadosEnriquecidos.filter(d => d.Ano === anoAtual - 1);
+                let closeFinalAnoAnterior = null;
+                
+                // Pega o fechamento do último dia do ano anterior para calcular o YTD
+                if (dadosAnoAnterior.length > 0) {
+                    closeFinalAnoAnterior = dadosAnoAnterior[dadosAnoAnterior.length - 1].Close;
+                } else {
+                    let primeiroDiaAnoAtual = dadosEnriquecidos.find(d => d.Ano === anoAtual);
+                    if (primeiroDiaAnoAtual) closeFinalAnoAnterior = primeiroDiaAnoAtual.Close;
+                }
+
+                let dadosMesAnoAtual = dadosEnriquecidos.filter(d => d.Mes === mes && d.Ano === anoAtual);
+                
+                if (dadosMesAnoAtual.length > 0 && closeFinalAnoAnterior) {
+                    let xYtd = []; let yYtd = [];
+                    
+                    dadosMesAnoAtual.forEach(d => {
+                        let ytd = ((d.Close / closeFinalAnoAnterior) - 1) * 100;
+                        xYtd.push(d.TradingDay);
+                        yYtd.push(ytd);
+                    });
+
+                    traces.push({
+                        x: xYtd, y: yYtd, type: 'scatter', mode: 'lines',
+                        line: {color: COR_YTD, width: 2, dash: 'dash'},
+                        yaxis: 'y2', // Manda essa linha pro eixo direito
+                        name: `YTD Ano Atual (${anoAtual})`
+                    });
+                }
+            }
+
             let layout = {
                 plot_bgcolor: COR_FUNDO_GRAFICO, paper_bgcolor: COR_FUNDO_GRAFICO, font: {color: COR_TEXTO},
                 xaxis: { title: 'Dia Útil do Mês', gridcolor: COR_GRID },
-                yaxis: { title: 'Retorno Acumulado (%)', gridcolor: COR_GRID, zeroline: false },
-                margin: {t: 10, l: 40, r: 20, b: 40}, hovermode: 'x unified',
-                legend: { orientation: 'h', y: 1.1, x: 0 } 
+                yaxis: { title: 'Retorno no Mês (%)', gridcolor: COR_GRID, zeroline: false },
+                // Configuração do Eixo Y Secundário (Direita) para o YTD
+                yaxis2: { 
+                    title: 'Retorno YTD (%)', 
+                    overlaying: 'y', 
+                    side: 'right', 
+                    showgrid: false, 
+                    zeroline: false,
+                    titlefont: {color: COR_YTD},
+                    tickfont: {color: COR_YTD}
+                },
+                margin: {t: 10, l: 40, r: 50, b: 40}, // Margem direita maior pra caber o eixo YTD
+                hovermode: 'x unified',
+                legend: { orientation: 'h', y: 1.15, x: 0 } 
             };
 
             Plotly.newPlot('graficoSazonalidade', traces, layout);
