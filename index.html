@@ -134,7 +134,7 @@
         </div>
 
         <div class="chart-container">
-            <h3 id="tituloSazonalidade">Média sazonal</h3>
+            <h3 id="tituloSazonalidade">Média Sazonal</h3>
             <div id="graficoSazonalidade" style="width:100%; height:400px;"></div>
         </div>
     </div>
@@ -223,7 +223,7 @@
             atualizarGraficos();
         }
 
-        // 3. FAZ AS CONTAS BÁSICAS
+        // 3. FAZ AS CONTAS BÁSICAS (Com MtD e YTD Reais)
         function processarDadosEAtualizar() {
             let ativo = document.getElementById("ativoSelect").value;
             dadosEnriquecidos = [];
@@ -233,6 +233,10 @@
             let currentMonth = null;
             let tradingDay = 1;
 
+            let baseMtD = null;
+            let baseYTD = null;
+
+            // Garante ordem cronológica para que a lógica de 'último dia' funcione
             dadosBrutos.sort((a, b) => a.Data.localeCompare(b.Data));
 
             for (let i = 0; i < dadosBrutos.length; i++) {
@@ -244,20 +248,39 @@
                 let y = parseInt(partesData[0]);
                 let m = parseInt(partesData[1]);
 
-                let retorno = previousClose !== null ? (close - previousClose) / previousClose : 0;
-                previousClose = close;
+                // Detecta virada de Ano (para Base YTD)
+                if (y !== currentYear) {
+                    // O base do YTD é o último fechamento do ano anterior
+                    baseYTD = previousClose !== null ? previousClose : close;
+                }
 
+                // Detecta virada de Mês (para Base MtD)
                 if (y !== currentYear || m !== currentMonth) {
+                    // O base do MtD é o último fechamento do mês anterior
+                    baseMtD = previousClose !== null ? previousClose : close;
+                    
                     tradingDay = 1;
-                    currentYear = y; currentMonth = m;
+                    currentYear = y; 
+                    currentMonth = m;
                 } else {
                     tradingDay++;
                 }
 
+                // Cálculos exatos de Performance
+                let mtd = ((close / baseMtD) - 1) * 100;
+                let ytd = ((close / baseYTD) - 1) * 100;
+
                 dadosEnriquecidos.push({
-                    Data: row.Data, Ano: y, Mes: m, 
-                    TradingDay: tradingDay, Close: close, Retorno: retorno
+                    Data: row.Data, 
+                    Ano: y, 
+                    Mes: m, 
+                    TradingDay: tradingDay, 
+                    Close: close, 
+                    MtD: mtd,
+                    YTD: ytd
                 });
+
+                previousClose = close;
             }
 
             atualizarGraficos();
@@ -276,7 +299,7 @@
                 if (anosSelecionados.includes(d.Ano)) {
                     yData.push(d.Close);
                 } else {
-                    yData.push(null); 
+                    yData.push(null); // Quebra a linha onde não há seleção
                 }
             });
 
@@ -299,7 +322,7 @@
             Plotly.newPlot('graficoPrincipal', [trace], layout);
         }
 
-        // 5. DESENHA GRÁFICO 2: SAZONALIDADE (COMPOSIÇÃO CORRETA MtD + YTD MESMA ESCALA)
+        // 5. DESENHA GRÁFICO 2: SAZONALIDADE
         function desenharSazonalidade() {
             let mes = parseInt(document.getElementById("mesSelect").value);
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
@@ -322,21 +345,17 @@
             let traces = [];
             let somaMtDPorDia = {}; 
 
-            // -- SÉRIE: ANO ATUAL (Cálculo do MtD Correto)
+            // -- SÉRIE: ANO ATUAL (MtD)
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
                 let x = []; let y = []; 
-                let fatorAcumulado = 1; 
 
                 dadosDoAno.forEach(d => {
-                    fatorAcumulado *= (1 + d.Retorno); 
-                    let mtdReal = (fatorAcumulado - 1) * 100; 
-
                     x.push(d.TradingDay);
-                    y.push(mtdReal);
+                    y.push(d.MtD); // Agora usando o MtD real calculado no processamento
 
                     if(!somaMtDPorDia[d.TradingDay]) somaMtDPorDia[d.TradingDay] = [];
-                    somaMtDPorDia[d.TradingDay].push(mtdReal);
+                    somaMtDPorDia[d.TradingDay].push(d.MtD);
                 });
 
                 if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
@@ -349,7 +368,7 @@
                 }
             });
 
-            // -- SÉRIE: MÉDIA DA AMOSTRA (Média dos caminhos MtD)
+            // -- SÉRIE: MÉDIA DA AMOSTRA
             let maxDias = Math.max(...Object.keys(somaMtDPorDia).map(Number));
             let xAvg = []; let yAvg = []; 
 
@@ -376,33 +395,21 @@
                 hoverinfo: 'none', showlegend: false
             });
 
-            // -- SÉRIE: YTD DO ANO ATUAL (Agora no mesmo Eixo Y Principal)
+            // -- SÉRIE: YTD DO ANO ATUAL
             if (anosSelecionados.includes(anoAtual)) {
-                let dadosAnoAnterior = dadosEnriquecidos.filter(d => d.Ano === anoAtual - 1);
-                let closeFinalAnoAnterior = null;
-                
-                if (dadosAnoAnterior.length > 0) {
-                    closeFinalAnoAnterior = dadosAnoAnterior[dadosAnoAnterior.length - 1].Close;
-                } else {
-                    let primeiroDiaAnoAtual = dadosEnriquecidos.find(d => d.Ano === anoAtual);
-                    if (primeiroDiaAnoAtual) closeFinalAnoAnterior = primeiroDiaAnoAtual.Close;
-                }
-
                 let dadosMesAnoAtual = dadosEnriquecidos.filter(d => d.Mes === mes && d.Ano === anoAtual);
                 
-                if (dadosMesAnoAtual.length > 0 && closeFinalAnoAnterior) {
+                if (dadosMesAnoAtual.length > 0) {
                     let xYtd = []; let yYtd = [];
                     
                     dadosMesAnoAtual.forEach(d => {
-                        let ytd = ((d.Close / closeFinalAnoAnterior) - 1) * 100;
                         xYtd.push(d.TradingDay);
-                        yYtd.push(ytd);
+                        yYtd.push(d.YTD); // Usando o YTD real calculado no processamento
                     });
 
                     traces.push({
                         x: xYtd, y: yYtd, type: 'scatter', mode: 'lines',
                         line: {color: COR_YTD, width: 2, dash: 'dash'},
-                        // Removido o 'yaxis: y2' para que ele use o eixo principal
                         name: `YTD Ano Atual (${anoAtual})`
                     });
                 }
@@ -411,8 +418,8 @@
             let layout = {
                 plot_bgcolor: COR_FUNDO_GRAFICO, paper_bgcolor: COR_FUNDO_GRAFICO, font: {color: COR_TEXTO},
                 xaxis: { title: 'Dia Útil do Mês', gridcolor: COR_GRID },
-                yaxis: { title: 'Retorno (%)', gridcolor: COR_GRID, zeroline: false }, // Título simplificado para abranger MtD e YTD
-                margin: {t: 10, l: 40, r: 20, b: 40}, // Margem direita (r) retornou ao padrão de 20
+                yaxis: { title: 'Retorno (%)', gridcolor: COR_GRID, zeroline: false },
+                margin: {t: 10, l: 40, r: 20, b: 40}, 
                 hovermode: 'x unified',
                 legend: { orientation: 'h', y: 1.15, x: 0 } 
             };
