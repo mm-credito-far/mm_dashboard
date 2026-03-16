@@ -1,7 +1,7 @@
-﻿Data inicial;1994-01-03 00:00:00;Unnamed: 2;Unnamed: 3;Unnamed: 4;Unnamed: 5;Unnamed: 6;Unnamed: 7;Unnamed: 8
-Data final;;;;;;;;
-;;;;;;;;
-;BRL Curncy;IBOV Index;XAU Curncy;SPX Index;DXY Curncy;GEBR10Y Index;GEBR02Y Index;GEBR5Y Index
-;;;;;;;;
-Dates;PX_LAST;PX_LAST;PX_LAST;PX_LAST;PX_LAST;PX_LAST;PX_LAST;PX_LAST
-;;;;;;;;
+﻿Data inicial,1994-01-03 00:00:00,Unnamed: 2,Unnamed: 3,Unnamed: 4,Unnamed: 5,Unnamed: 6,Unnamed: 7,Unnamed: 8
+Data final,,,,,,,,
+,,,,,,,,
+,BRL Curncy,IBOV Index,XAU Curncy,SPX Index,DXY Curncy,GEBR10Y Index,GEBR02Y Index,GEBR5Y Index
+,,,,,,,,
+Dates,PX_LAST,PX_LAST,PX_LAST,PX_LAST,PX_LAST,PX_LAST,PX_LAST,PX_LAST
+,,,,,,,,
