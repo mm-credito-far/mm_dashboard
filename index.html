@@ -27,8 +27,8 @@
         }
 
         /* --- LOGO --- */
-        .logo-container { margin-bottom: 30px; }
-        .logo-container img { max-width: 250px; height: auto; display: block; }
+        .logo-container { margin-bottom: 30px; text-align: center; }
+        .logo-container img { max-width: 250px; height: auto; display: block; margin: 0 auto; }
 
         .sidebar label { font-size: 13px; margin-bottom: 6px; display: block; color: rgb(218, 238, 243); font-weight: bold; }
         
@@ -89,6 +89,7 @@
     <div class="sidebar">
         <div class="logo-container">
             <img src="logofator.png" alt="Logo Fator">
+            <div id="ultimaData" style="font-size: 12px; color: #869099; text-align: center; margin-top: 10px; font-weight: bold;"></div>
         </div>
 
         <h2 style="margin-bottom: 25px; border-bottom: 2px solid rgb(250, 175, 0); padding-bottom: 10px; display: inline-block;">Filtros</h2>
@@ -220,7 +221,7 @@
         function atualizarGraficos() {
             desenharEvolucao();
             desenharSazonalidade();
-            desenharYTD(); // Agora chama o gráfico separado
+            desenharYTD(); 
         }
 
         function selecionarTodosAnos(marcar) {
@@ -244,12 +245,24 @@
 
             dadosBrutos.sort((a, b) => a.Data.localeCompare(b.Data));
 
+            // NOVA LÓGICA: Exibir a última data
+            if (dadosBrutos.length > 0) {
+                let ultimaLinha = dadosBrutos[dadosBrutos.length - 1];
+                let partesData = String(ultimaLinha.Data).split('-');
+                if(partesData.length === 3) {
+                    let dataFormatada = `${partesData[2]}/${partesData[1]}/${partesData[0]}`; 
+                    document.getElementById('ultimaData').innerText = `Último dado: ${dataFormatada}`;
+                } else {
+                    document.getElementById('ultimaData').innerText = `Último dado: ${ultimaLinha.Data}`;
+                }
+            }
+
             for (let i = 0; i < dadosBrutos.length; i++) {
                 let row = dadosBrutos[i];
                 let close = parseFloat(row[ativo]);
                 if (isNaN(close)) continue;
 
-                let partesData = row.Data.split('-');
+                let partesData = String(row.Data).split('-');
                 let y = parseInt(partesData[0]);
                 let m = parseInt(partesData[1]);
 
@@ -271,7 +284,7 @@
 
                 dadosEnriquecidos.push({
                     Data: row.Data, Ano: y, Mes: m, 
-                    TradingDay: tradingDay, Close: close, Retorno: mtd, // Substituí o antigo Retorno diário pra facilitar, a lógica agora usa MtD e YTD
+                    TradingDay: tradingDay, Close: close, Retorno: mtd,
                     MtD: mtd, YTD: ytd
                 });
 
@@ -293,11 +306,9 @@
             let yDataFiltro = [];
 
             dadosEnriquecidos.forEach(d => {
-                // Preenche a série de fundo com toda a história
                 xDataTodos.push(d.Data);
                 yDataTodos.push(d.Close);
 
-                // Preenche a série de destaque (quebra a linha se não estiver selecionado)
                 xDataFiltro.push(d.Data);
                 if (anosSelecionados.includes(d.Ano)) {
                     yDataFiltro.push(d.Close);
@@ -306,17 +317,15 @@
                 }
             });
 
-            // Série 1: O "Fantasma" Cinza de toda a história
             let traceFundo = {
                 x: xDataTodos,
                 y: yDataTodos,
                 type: 'scatter', mode: 'lines',
-                line: {color: 'rgba(120, 135, 145, 0.3)', width: 1}, // Cinza fino e transparente
-                hoverinfo: 'skip', // Impede que apareça balão de dados nessa linha de fundo
+                line: {color: 'rgba(120, 135, 145, 0.3)', width: 1}, 
+                hoverinfo: 'skip', 
                 showlegend: false
             };
 
-            // Série 2: O "Marca-Texto" Amarelo dos anos selecionados
             let traceDestaque = {
                 x: xDataFiltro,
                 y: yDataFiltro,
@@ -360,14 +369,17 @@
             let traces = [];
             let somaMtDPorDia = {}; 
 
-            // Série: Ano Atual (MtD)
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
-                let x = []; let y = []; 
+                let x = []; let y = []; let datas = [];
 
                 dadosDoAno.forEach(d => {
                     x.push(d.TradingDay);
                     y.push(d.MtD); 
+                    
+                    // Formatação da data para o Hover
+                    let p = String(d.Data).split('-');
+                    datas.push(p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d.Data);
 
                     if(!somaMtDPorDia[d.TradingDay]) somaMtDPorDia[d.TradingDay] = [];
                     somaMtDPorDia[d.TradingDay].push(d.MtD);
@@ -375,15 +387,17 @@
 
                 if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
                     traces.push({
-                        x: x, y: y, type: 'scatter', mode: 'lines+markers',
+                        x: x, y: y, 
+                        text: datas, // Array de datas passado para o hover
+                        type: 'scatter', mode: 'lines+markers',
                         line: {color: COR_SERIE, width: 3},
                         marker: {size: 6},
-                        name: `Ano Atual (${ano})`
+                        name: `Ano Atual (${ano})`,
+                        hovertemplate: '<b>%{text}</b><br>Retorno no Mês: %{y:.2f}%<extra></extra>'
                     });
                 }
             });
 
-            // Série: Média da Amostra (MtD)
             let maxDias = Math.max(...Object.keys(somaMtDPorDia).map(Number));
             let xAvg = []; let yAvg = []; 
 
@@ -403,7 +417,6 @@
                 name: 'Média da Amostra'
             });
 
-            // Linha do Zero
             traces.push({
                 x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
                 line: {color: 'rgba(255,255,255,0.3)', width: 1},
@@ -445,14 +458,17 @@
             let traces = [];
             let somaYTDPorDia = {}; 
 
-            // Série: Ano Atual (YTD)
             anos.forEach(ano => {
                 let dadosDoAno = dadosPorAno[ano];
-                let x = []; let y = []; 
+                let x = []; let y = []; let datas = [];
 
                 dadosDoAno.forEach(d => {
                     x.push(d.TradingDay);
                     y.push(d.YTD); 
+                    
+                    // Formatação da data para o Hover
+                    let p = String(d.Data).split('-');
+                    datas.push(p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d.Data);
 
                     if(!somaYTDPorDia[d.TradingDay]) somaYTDPorDia[d.TradingDay] = [];
                     somaYTDPorDia[d.TradingDay].push(d.YTD);
@@ -460,15 +476,17 @@
 
                 if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
                     traces.push({
-                        x: x, y: y, type: 'scatter', mode: 'lines+markers',
-                        line: {color: COR_YTD, width: 3}, // Azul claro para o YTD
+                        x: x, y: y, 
+                        text: datas, // Array de datas passado para o hover
+                        type: 'scatter', mode: 'lines+markers',
+                        line: {color: COR_YTD, width: 3},
                         marker: {size: 6},
-                        name: `Ano Atual (${ano})`
+                        name: `Ano Atual (${ano})`,
+                        hovertemplate: '<b>%{text}</b><br>Retorno no Ano: %{y:.2f}%<extra></extra>'
                     });
                 }
             });
 
-            // Série: Média da Amostra (YTD)
             let maxDias = Math.max(...Object.keys(somaYTDPorDia).map(Number));
             let xAvg = []; let yAvg = []; 
 
@@ -488,7 +506,6 @@
                 name: 'Média da Amostra'
             });
 
-            // Linha do Zero
             traces.push({
                 x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
                 line: {color: 'rgba(255,255,255,0.3)', width: 1},
