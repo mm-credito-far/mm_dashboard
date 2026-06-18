@@ -163,14 +163,6 @@
         const COR_GRID = 'rgba(120, 135, 145, 0.2)';
         const COR_TEXTO = '#ffffff';
 
-        // Paleta para diferenciar os vários anos no gráfico YoY anual
-        const PALETA_ANOS = [
-            'rgb(218, 238, 243)', 'rgb(134, 144, 153)', 'rgb(120, 200, 180)',
-            'rgb(230, 120, 120)', 'rgb(150, 170, 230)', 'rgb(200, 160, 220)',
-            'rgb(120, 180, 240)', 'rgb(240, 200, 120)', 'rgb(170, 220, 140)',
-            'rgb(220, 150, 190)'
-        ];
-
         // 1. LÊ O ARQUIVO CSV
         Papa.parse("dados.csv", {
             download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
@@ -254,6 +246,7 @@
             let currentYear = null;
             let currentMonth = null;
             let tradingDay = 1;
+            let tradingDayAno = 1;
 
             let baseMtD = null;
             let baseYTD = null;
@@ -283,6 +276,9 @@
 
                 if (y !== currentYear) {
                     baseYTD = previousClose !== null ? previousClose : close;
+                    tradingDayAno = 1;
+                } else {
+                    tradingDayAno++;
                 }
 
                 if (y !== currentYear || m !== currentMonth) {
@@ -299,7 +295,8 @@
 
                 dadosEnriquecidos.push({
                     Data: row.Data, Ano: y, Mes: m, 
-                    TradingDay: tradingDay, Close: close, Retorno: mtd,
+                    TradingDay: tradingDay, TradingDayAno: tradingDayAno,
+                    Close: close, Retorno: mtd,
                     MtD: mtd, YTD: ytd
                 });
 
@@ -362,8 +359,9 @@
         }
 
         // 4.5 NOVO GRÁFICO: EVOLUÇÃO YoY ANUAL
-        // Sobrepõe o acumulado (YTD) de cada ano selecionado ao longo de TODOS os meses (Jan -> Dez).
-        // O eixo X usa uma data normalizada (ano base fixo) para alinhar os anos mês a mês.
+        // Mostra o acumulado (YTD) do ANO ATUAL em destaque + a MÉDIA DA AMOSTRA
+        // (média dos anos marcados no filtro), ao longo de todos os meses do ano.
+        // O eixo X usa o "Dia Útil do Ano" para alinhar os anos ponto a ponto.
         function desenharEvolucaoAnual() {
             let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
 
@@ -376,7 +374,7 @@
                 }
             });
 
-            let anos = Object.keys(dadosPorAno).map(Number).sort((a, b) => a - b);
+            let anos = Object.keys(dadosPorAno).map(Number);
 
             if (anos.length === 0) {
                 Plotly.purge('graficoEvolucaoAnual');
@@ -385,51 +383,67 @@
 
             let anoAtual = Math.max(...anosDisponiveis.map(Number));
             let traces = [];
-            let corIdx = 0;
+            let somaYTDPorDia = {}; // acumula YTD por dia útil do ano (todos os anos do filtro)
 
             anos.forEach(ano => {
                 let x = []; let y = []; let datas = [];
 
                 dadosPorAno[ano].forEach(d => {
-                    let p = String(d.Data).split('-'); // [aaaa, mm, dd]
-                    // Data normalizada para um ano base fixo (2000) -> alinha os anos no mesmo eixo
-                    x.push(`2000-${p[1]}-${p[2]}`);
-                    y.push(d.YTD);
-                    datas.push(p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d.Data);
+                    let p = String(d.Data).split('-');
+                    let dataFmt = p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d.Data;
+
+                    // Alimenta a média (todos os anos selecionados)
+                    if (!somaYTDPorDia[d.TradingDayAno]) somaYTDPorDia[d.TradingDayAno] = [];
+                    somaYTDPorDia[d.TradingDayAno].push(d.YTD);
+
+                    // Guarda a série só do ano atual para plotar em destaque
+                    if (ano === anoAtual) {
+                        x.push(d.TradingDayAno);
+                        y.push(d.YTD);
+                        datas.push(dataFmt);
+                    }
                 });
 
-                let ehAtual = (ano === anoAtual);
+                if (ano === anoAtual && anosSelecionados.includes(anoAtual)) {
+                    traces.push({
+                        x: x, y: y, text: datas,
+                        type: 'scatter', mode: 'lines',
+                        line: {color: COR_SERIE, width: 3.5},
+                        name: `Ano Atual (${ano})`,
+                        hovertemplate: '<b>%{text}</b><br>Acumulado no ano: %{y:.2f}%<extra></extra>'
+                    });
+                }
+            });
 
-                traces.push({
-                    x: x, y: y, text: datas,
-                    type: 'scatter', mode: 'lines',
-                    line: {
-                        color: ehAtual ? COR_SERIE : PALETA_ANOS[corIdx % PALETA_ANOS.length],
-                        width: ehAtual ? 3.5 : 1.8
-                    },
-                    name: String(ano),
-                    hovertemplate: '<b>%{text}</b><br>Acumulado no ano: %{y:.2f}%<extra></extra>'
-                });
+            // Linha da MÉDIA DA AMOSTRA (média dos anos do filtro por dia útil do ano)
+            let maxDias = Math.max(...Object.keys(somaYTDPorDia).map(Number));
+            let xAvg = []; let yAvg = [];
 
-                if (!ehAtual) corIdx++;
+            for (let i = 1; i <= maxDias; i++) {
+                if (somaYTDPorDia[i]) {
+                    let amostra = somaYTDPorDia[i];
+                    let media = amostra.reduce((a, b) => a + b, 0) / amostra.length;
+                    xAvg.push(i);
+                    yAvg.push(media);
+                }
+            }
+
+            traces.push({
+                x: xAvg, y: yAvg, type: 'scatter', mode: 'lines',
+                line: {color: 'rgb(242, 242, 242)', width: 3, dash: 'dot'},
+                name: 'Média da Amostra'
             });
 
             // Linha do zero
             traces.push({
-                x: ['2000-01-01', '2000-12-31'], y: [0, 0],
-                type: 'scatter', mode: 'lines',
+                x: [1, maxDias], y: [0, 0], type: 'scatter', mode: 'lines',
                 line: {color: 'rgba(255,255,255,0.3)', width: 1},
                 hoverinfo: 'none', showlegend: false
             });
 
             let layout = {
                 plot_bgcolor: COR_FUNDO_GRAFICO, paper_bgcolor: COR_FUNDO_GRAFICO, font: {color: COR_TEXTO},
-                xaxis: {
-                    gridcolor: COR_GRID,
-                    tickformat: '%b',   // mostra Jan, Fev, Mar...
-                    dtick: 'M1',
-                    range: ['2000-01-01', '2000-12-31']
-                },
+                xaxis: { title: 'Dia Útil do Ano', gridcolor: COR_GRID },
                 yaxis: { title: 'Retorno Acumulado no Ano (%)', gridcolor: COR_GRID, zeroline: false },
                 margin: {t: 10, l: 50, r: 20, b: 40},
                 hovermode: 'x unified',
