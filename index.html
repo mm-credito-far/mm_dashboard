@@ -134,6 +134,12 @@
             <div id="graficoPrincipal" style="width:100%; height:350px;"></div>
         </div>
 
+        <!-- NOVO: Evolução YoY anual (todos os meses, anos sobrepostos) -->
+        <div class="chart-container">
+            <h3 id="tituloEvolucaoAnual">Evolução YoY (Acumulado anual - todos os meses)</h3>
+            <div id="graficoEvolucaoAnual" style="width:100%; height:380px;"></div>
+        </div>
+
         <div class="chart-container">
             <h3 id="tituloSazonalidade">Sazonalidade do mês (MtD)</h3>
             <div id="graficoSazonalidade" style="width:100%; height:350px;"></div>
@@ -156,6 +162,14 @@
         const COR_FUNDO_GRAFICO = 'rgb(25, 40, 50)';
         const COR_GRID = 'rgba(120, 135, 145, 0.2)';
         const COR_TEXTO = '#ffffff';
+
+        // Paleta para diferenciar os vários anos no gráfico YoY anual
+        const PALETA_ANOS = [
+            'rgb(218, 238, 243)', 'rgb(134, 144, 153)', 'rgb(120, 200, 180)',
+            'rgb(230, 120, 120)', 'rgb(150, 170, 230)', 'rgb(200, 160, 220)',
+            'rgb(120, 180, 240)', 'rgb(240, 200, 120)', 'rgb(170, 220, 140)',
+            'rgb(220, 150, 190)'
+        ];
 
         // 1. LÊ O ARQUIVO CSV
         Papa.parse("dados.csv", {
@@ -220,6 +234,7 @@
 
         function atualizarGraficos() {
             desenharEvolucao();
+            desenharEvolucaoAnual(); // NOVO
             desenharSazonalidade();
             desenharYTD(); 
         }
@@ -344,6 +359,84 @@
             };
 
             Plotly.newPlot('graficoPrincipal', [traceFundo, traceDestaque], layout);
+        }
+
+        // 4.5 NOVO GRÁFICO: EVOLUÇÃO YoY ANUAL
+        // Sobrepõe o acumulado (YTD) de cada ano selecionado ao longo de TODOS os meses (Jan -> Dez).
+        // O eixo X usa uma data normalizada (ano base fixo) para alinhar os anos mês a mês.
+        function desenharEvolucaoAnual() {
+            let anosSelecionados = Array.from(document.querySelectorAll('.ano-cb:checked')).map(cb => parseInt(cb.value));
+
+            // Agrupa por ano apenas os anos marcados
+            let dadosPorAno = {};
+            dadosEnriquecidos.forEach(d => {
+                if (anosSelecionados.includes(d.Ano)) {
+                    if (!dadosPorAno[d.Ano]) dadosPorAno[d.Ano] = [];
+                    dadosPorAno[d.Ano].push(d);
+                }
+            });
+
+            let anos = Object.keys(dadosPorAno).map(Number).sort((a, b) => a - b);
+
+            if (anos.length === 0) {
+                Plotly.purge('graficoEvolucaoAnual');
+                return;
+            }
+
+            let anoAtual = Math.max(...anosDisponiveis.map(Number));
+            let traces = [];
+            let corIdx = 0;
+
+            anos.forEach(ano => {
+                let x = []; let y = []; let datas = [];
+
+                dadosPorAno[ano].forEach(d => {
+                    let p = String(d.Data).split('-'); // [aaaa, mm, dd]
+                    // Data normalizada para um ano base fixo (2000) -> alinha os anos no mesmo eixo
+                    x.push(`2000-${p[1]}-${p[2]}`);
+                    y.push(d.YTD);
+                    datas.push(p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d.Data);
+                });
+
+                let ehAtual = (ano === anoAtual);
+
+                traces.push({
+                    x: x, y: y, text: datas,
+                    type: 'scatter', mode: 'lines',
+                    line: {
+                        color: ehAtual ? COR_SERIE : PALETA_ANOS[corIdx % PALETA_ANOS.length],
+                        width: ehAtual ? 3.5 : 1.8
+                    },
+                    name: String(ano),
+                    hovertemplate: '<b>%{text}</b><br>Acumulado no ano: %{y:.2f}%<extra></extra>'
+                });
+
+                if (!ehAtual) corIdx++;
+            });
+
+            // Linha do zero
+            traces.push({
+                x: ['2000-01-01', '2000-12-31'], y: [0, 0],
+                type: 'scatter', mode: 'lines',
+                line: {color: 'rgba(255,255,255,0.3)', width: 1},
+                hoverinfo: 'none', showlegend: false
+            });
+
+            let layout = {
+                plot_bgcolor: COR_FUNDO_GRAFICO, paper_bgcolor: COR_FUNDO_GRAFICO, font: {color: COR_TEXTO},
+                xaxis: {
+                    gridcolor: COR_GRID,
+                    tickformat: '%b',   // mostra Jan, Fev, Mar...
+                    dtick: 'M1',
+                    range: ['2000-01-01', '2000-12-31']
+                },
+                yaxis: { title: 'Retorno Acumulado no Ano (%)', gridcolor: COR_GRID, zeroline: false },
+                margin: {t: 10, l: 50, r: 20, b: 40},
+                hovermode: 'x unified',
+                legend: { orientation: 'h', y: 1.15, x: 0 }
+            };
+
+            Plotly.newPlot('graficoEvolucaoAnual', traces, layout);
         }
 
         // 5. DESENHA GRÁFICO 2: SAZONALIDADE (MtD)
@@ -526,6 +619,3 @@
     </script>
 </body>
 </html>
-
-
-
